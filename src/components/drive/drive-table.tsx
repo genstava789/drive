@@ -48,7 +48,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signIn } from "next-auth/react";
-import { restoreAllAccounts } from "@/lib/account-store";
 
 interface DriveTableProps {
   data: DriveFile[];
@@ -456,7 +455,7 @@ export function DriveTable({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={`h-9 text-xs font-semibold text-slate-700 select-none ${getColumnClass(
+                    className={`h-9 text-xs font-semibold text-slate-700 normal-case select-none ${getColumnClass(
                       header.column.id
                     )}`}
                   >
@@ -537,14 +536,6 @@ export function DriveTable({
                           />
                         </svg>
                         <span>Login Akun Google Drive</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => restoreAllAccounts()}
-                        className="h-8.5 px-3 text-xs text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg cursor-pointer"
-                      >
-                        Reset Akun Demo
                       </Button>
                     </div>
                   </div>

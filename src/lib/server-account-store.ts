@@ -121,10 +121,47 @@ function writeToLocalFile(accounts: ServerAccount[]) {
 }
 
 /**
+ * Fetch real user profile (name, email, photo) from Google Drive about API
+ */
+export async function fetchGoogleDriveUserProfile(
+  accessToken: string
+): Promise<{ displayName?: string; emailAddress?: string; photoLink?: string } | null> {
+  try {
+    const res = await fetch(
+      "https://www.googleapis.com/drive/v3/about?fields=user",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return data?.user || null;
+    }
+  } catch (err) {
+    console.warn("[ServerStore] Failed to fetch Drive user profile:", err);
+  }
+  return null;
+}
+
+let userExplicitlyLoggedOut = false;
+
+export function setExplicitLogout(loggedOut: boolean) {
+  userExplicitlyLoggedOut = loggedOut;
+}
+
+export function isExplicitLoggedOut(): boolean {
+  return userExplicitlyLoggedOut;
+}
+
+/**
  * Get account provisioned directly via Environment Variables
  * (e.g. GOOGLE_REFRESH_TOKEN or REFRESH_TOKEN set on Vercel/Netlify)
  */
 export function getEnvProvisionedAccount(): ServerAccount | null {
+  if (userExplicitlyLoggedOut) {
+    return null;
+  }
+
   const refreshToken =
     process.env.GOOGLE_REFRESH_TOKEN ||
     process.env.REFRESH_TOKEN ||
@@ -134,10 +171,8 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
     return null;
   }
 
-  const email =
-    process.env.GOOGLE_ACCOUNT_EMAIL || "admin@levidrive.com";
-  const name =
-    process.env.GOOGLE_ACCOUNT_NAME || "Akun Google Drive Terhubung";
+  const email = process.env.GOOGLE_ACCOUNT_EMAIL || "";
+  const name = process.env.GOOGLE_ACCOUNT_NAME || "Akun Google";
 
   return {
     id: "env-primary-account",
@@ -152,6 +187,10 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
  * Retrieve all server-stored Google accounts
  */
 export async function getServerAccounts(): Promise<ServerAccount[]> {
+  if (userExplicitlyLoggedOut) {
+    return [];
+  }
+
   let accounts: ServerAccount[] = [];
 
   // 1. Try external KV / Redis first
@@ -166,6 +205,9 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
     accounts = readFromLocalFile();
   }
 
+  // Clean out any legacy placeholder emails
+  accounts = accounts.filter((a) => a.email !== "admin@levidrive.com");
+
   // 4. Merge with environment provisioned account if present
   const envAcc = getEnvProvisionedAccount();
   if (envAcc) {
@@ -175,11 +217,36 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
     if (existingIdx >= 0) {
       accounts[existingIdx] = {
         ...envAcc,
-        accessToken: accounts[existingIdx].accessToken,
-        expiresAt: accounts[existingIdx].expiresAt,
+        ...accounts[existingIdx],
       };
     } else {
       accounts.unshift(envAcc);
+    }
+  }
+
+  // 5. Automatically resolve real Google profile from Google Drive API
+  for (const acc of accounts) {
+    if ((!acc.email || acc.email === "admin@levidrive.com" || !acc.image) && acc.refreshToken) {
+      try {
+        const nowEpoch = Math.floor(Date.now() / 1000);
+        let token = acc.accessToken;
+        if (!token || !acc.expiresAt || acc.expiresAt < nowEpoch + 60) {
+          const refreshed = await refreshGoogleAccessToken(acc.refreshToken);
+          acc.accessToken = refreshed.accessToken;
+          acc.expiresAt = nowEpoch + refreshed.expiresIn;
+          token = refreshed.accessToken;
+        }
+
+        if (token) {
+          const profile = await fetchGoogleDriveUserProfile(token);
+          if (profile) {
+            if (profile.displayName) acc.name = profile.displayName;
+            if (profile.emailAddress) acc.email = profile.emailAddress;
+            if (profile.photoLink) acc.image = profile.photoLink;
+            acc.updatedAt = Date.now();
+          }
+        }
+      } catch (_) {}
     }
   }
 
@@ -190,11 +257,23 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
 }
 
 /**
+ * Clear all accounts on explicit logout
+ */
+export async function clearAllServerAccounts(): Promise<void> {
+  userExplicitlyLoggedOut = true;
+  memoryCache = [];
+  memoryCacheLoaded = true;
+  await saveToKv([]);
+  writeToLocalFile([]);
+}
+
+/**
  * Save or update an account in the server-side store
  */
 export async function saveServerAccount(
   accountData: Partial<ServerAccount> & { id: string }
 ): Promise<ServerAccount> {
+  userExplicitlyLoggedOut = false;
   const accounts = await getServerAccounts();
 
   const email = accountData.email || "";

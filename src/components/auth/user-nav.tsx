@@ -18,14 +18,10 @@ import {
   Plus,
   Check,
   ChevronDown,
-  RotateCcw,
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
-import { MOCK_ACCOUNTS } from "@/lib/mock-data";
 import {
-  filterAvailableAccounts,
   removeAccountById,
-  restoreAllAccounts,
   getActiveAccounts,
 } from "@/lib/account-store";
 import { GoogleAccount } from "@/types/drive";
@@ -94,22 +90,33 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
         `/api/auth/accounts?id=${encodeURIComponent(account.id || account.email)}`,
         { method: "DELETE" }
       );
+      if (accounts.length <= 1) {
+        await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
+      }
       setServerAccounts((prev) =>
         prev.filter((a) => a.id !== account.id && a.email !== account.email)
       );
     } catch (_) {}
 
-    if (session?.user && accounts.length <= 1) {
+    if (accounts.length <= 1) {
       signOut({ redirect: false });
+      setAccounts([]);
+      setServerAccounts([]);
+      window.dispatchEvent(new Event("levidrive_accounts_changed"));
     }
 
-    // Switch to another remaining account or /0
     const nextIdx = idx === accountIndex ? 0 : accountIndex > idx ? accountIndex - 1 : accountIndex;
     router.push(`/${nextIdx}`);
   };
 
-  const handleResetDemoAccounts = () => {
-    restoreAllAccounts();
+  const handleLogoutAllAccounts = async () => {
+    try {
+      await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
+    } catch (_) {}
+    signOut({ redirect: false });
+    setAccounts([]);
+    setServerAccounts([]);
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
     router.push("/0");
   };
 
@@ -135,7 +142,7 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
             <Button
               size="sm"
               onClick={handleAddAccount}
-              className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs flex items-center gap-1.5"
+              className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
                 <path
@@ -156,15 +163,6 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                 />
               </svg>
               <span>Login Google</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="iconSm"
-              onClick={handleResetDemoAccounts}
-              title="Kembalikan Akun Demo"
-              className="h-8 w-8 text-slate-400 hover:text-slate-700"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
         ) : (
@@ -272,13 +270,13 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                 <span>Tambah Akun Google Lain</span>
               </DropdownMenuItem>
 
-              {/* Reset demo accounts if needed */}
+              {/* Logout all accounts */}
               <DropdownMenuItem
-                onClick={handleResetDemoAccounts}
-                className="gap-2 text-xs text-slate-600 cursor-pointer"
+                onClick={handleLogoutAllAccounts}
+                className="gap-2 text-xs text-red-600 font-medium cursor-pointer focus:text-red-600 focus:bg-red-50"
               >
-                <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
-                <span>Muat Ulang Semua Akun</span>
+                <LogOut className="h-3.5 w-3.5 text-red-500" />
+                <span>Logout Semua Akun</span>
               </DropdownMenuItem>
 
               {/* Guide modal link */}

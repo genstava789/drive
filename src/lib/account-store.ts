@@ -1,7 +1,6 @@
 "use client";
 
 import { GoogleAccount } from "@/types/drive";
-import { MOCK_ACCOUNTS } from "./mock-data";
 
 const REMOVED_ACCOUNTS_KEY = "levidrive_removed_accounts";
 
@@ -67,11 +66,12 @@ export function getActiveAccounts(
   } else if (serverAccounts && serverAccounts.length > 0) {
     rawAccounts = [...serverAccounts];
   } else {
-    rawAccounts = [...MOCK_ACCOUNTS];
+    // When logged out and no server accounts exist, return empty (no demo accounts)
+    rawAccounts = [];
   }
 
   // If serverAccounts has additional accounts not in current browser session, merge them
-  if (serverAccounts && serverAccounts.length > 0 && rawAccounts !== MOCK_ACCOUNTS) {
+  if (serverAccounts && serverAccounts.length > 0 && rawAccounts.length > 0) {
     for (const sa of serverAccounts) {
       if (!rawAccounts.some((a) => a.email === sa.email || a.id === sa.id)) {
         rawAccounts.push(sa);
@@ -79,6 +79,14 @@ export function getActiveAccounts(
     }
   }
 
-  return filterAvailableAccounts(rawAccounts);
+  // Filter out any removed accounts and any legacy demo/placeholder emails
+  const filtered = filterAvailableAccounts(rawAccounts).filter(
+    (a) =>
+      a.email !== "admin@levidrive.com" &&
+      a.email !== "levi.developer@gmail.com" &&
+      a.email !== "cloudvault.demo@gmail.com"
+  );
+
+  return filtered;
 }
 

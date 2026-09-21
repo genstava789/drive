@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { BreadcrumbItem, DriveFile, DriveResponse, FileCategoryFilter } from "@/types/drive";
+import { BreadcrumbItem, DriveFile, DriveResponse, FileCategoryFilter, GoogleAccount } from "@/types/drive";
 import { BreadcrumbNav } from "./breadcrumb-nav";
 import { DriveToolbar } from "./drive-toolbar";
 import { DriveTable } from "./drive-table";
@@ -34,9 +34,10 @@ export function DriveExplorer({
     { id: "root", name: "My Drive" },
   ]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isMockData, setIsMockData] = useState<boolean>(true);
+  const [isMockData, setIsMockData] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasNoAccount, setHasNoAccount] = useState<boolean>(false);
+  const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>([]);
 
   // Filters & Views
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -44,10 +45,25 @@ export function DriveExplorer({
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  // Synchronize accounts state
+  // Synchronize accounts state with server and browser session
   useEffect(() => {
-    const checkAccounts = () => {
-      const active = getActiveAccounts(session);
+    let isMounted = true;
+    const checkAccounts = async () => {
+      let currentServerAccounts: GoogleAccount[] = [];
+      try {
+        const res = await fetch("/api/auth/accounts");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.accounts)) {
+            currentServerAccounts = data.accounts;
+            if (isMounted) setServerAccounts(currentServerAccounts);
+          }
+        }
+      } catch (_) {}
+
+      if (!isMounted) return;
+
+      const active = getActiveAccounts(session, currentServerAccounts);
       if (active.length === 0) {
         setHasNoAccount(true);
         setFiles([]);
@@ -63,6 +79,7 @@ export function DriveExplorer({
     checkAccounts();
     window.addEventListener("levidrive_accounts_changed", checkAccounts);
     return () => {
+      isMounted = false;
       window.removeEventListener("levidrive_accounts_changed", checkAccounts);
     };
   }, [session, accountIndex, router]);
@@ -70,7 +87,7 @@ export function DriveExplorer({
   // Fetch Drive items from API
   const fetchFiles = useCallback(
     async (folderId: string) => {
-      const active = getActiveAccounts(session);
+      const active = getActiveAccounts(session, serverAccounts);
       if (active.length === 0) {
         setHasNoAccount(true);
         setFiles([]);
@@ -90,8 +107,13 @@ export function DriveExplorer({
           throw new Error(`Gagal memuat berkas: ${res.statusText}`);
         }
         const data: DriveResponse = await res.json();
-        setFiles(data.files || []);
-        setIsMockData(data.isMockData ?? true);
+        const incomingFiles = data.files || [];
+        setFiles(incomingFiles);
+        setIsMockData(data.isMockData ?? false);
+
+        if (incomingFiles.length === 0 && (!data.accounts || data.accounts.length === 0) && !session?.user && serverAccounts.length === 0) {
+          setHasNoAccount(true);
+        }
 
         if (folderId !== "root") {
           const folderName =
@@ -106,16 +128,17 @@ export function DriveExplorer({
       } catch (err: any) {
         console.error("Fetch error:", err);
         setError(err.message || "Terjadi kesalahan saat memuat berkas");
+        setFiles([]);
       } finally {
         setIsLoading(false);
       }
     },
-    [accountIndex, initialFolderName, session]
+    [accountIndex, initialFolderName, session, serverAccounts]
   );
 
   useEffect(() => {
     fetchFiles(currentFolderId);
-  }, [currentFolderId, fetchFiles, session]);
+  }, [currentFolderId, fetchFiles]);
 
   // Navigate using breadcrumb
   const handleBreadcrumbNavigate = (folderId: string, index: number) => {

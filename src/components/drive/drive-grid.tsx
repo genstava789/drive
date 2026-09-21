@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
-import { restoreAllAccounts } from "@/lib/account-store";
 
 interface DriveGridProps {
   files: DriveFile[];
@@ -84,14 +83,6 @@ export function DriveGrid({
               />
             </svg>
             <span>Login Akun Google Drive</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => restoreAllAccounts()}
-            className="h-8.5 px-3 text-xs text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg cursor-pointer"
-          >
-            Reset Akun Demo
           </Button>
         </div>
       </div>

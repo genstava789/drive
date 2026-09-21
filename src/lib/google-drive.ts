@@ -1,12 +1,4 @@
 import { DriveFile, DriveResponse } from "@/types/drive";
-import {
-  MOCK_ACCOUNTS,
-  MOCK_ROOT_FILES_ACC_0,
-  MOCK_ROOT_FILES_ACC_1,
-  MOCK_SUBFOLDER_FILES,
-  MOCK_FOLDER_NAMES,
-  findMockItemById,
-} from "./mock-data";
 
 import {
   getValidAccessTokenForAccount,
@@ -27,30 +19,15 @@ export async function getDriveFiles(
     } catch (_) {}
   }
 
-  // If still no access token is available or forceMock is requested, return mock data
-  if (!effectiveToken || forceMock) {
-    let files: DriveFile[] = [];
-
-    if (folderId === "root") {
-      files = accountIndex === 1 ? MOCK_ROOT_FILES_ACC_1 : MOCK_ROOT_FILES_ACC_0;
-    } else {
-      files = MOCK_SUBFOLDER_FILES[folderId] || [];
-    }
-
-    const folderName = MOCK_FOLDER_NAMES[folderId] || (folderId === "root" ? "My Drive" : folderId);
-
+  // If still no access token is available, return empty data (no demo accounts)
+  if (!effectiveToken) {
     return {
-      files,
+      files: [],
       currentFolderId: folderId,
-      currentFolderName: folderName,
-      isMockData: true,
+      currentFolderName: "My Drive",
+      isMockData: false,
       accountIndex,
-      accounts: MOCK_ACCOUNTS,
-      storageQuota: {
-        limit: "16106127360",
-        usage: accountIndex === 1 ? "8420000000" : "5826000000",
-        usageInDrive: accountIndex === 1 ? "7100000000" : "4100000000",
-      },
+      accounts: [],
     };
   }
 
@@ -89,25 +66,18 @@ export async function getDriveFiles(
     if (!response.ok) {
       const errBody = await response.text();
       console.warn("Google Drive API error:", response.status, errBody);
-      const fallbackFiles =
-        folderId === "root"
-          ? accountIndex === 1
-            ? MOCK_ROOT_FILES_ACC_1
-            : MOCK_ROOT_FILES_ACC_0
-          : MOCK_SUBFOLDER_FILES[folderId] || [];
 
       return {
-        files: fallbackFiles,
+        files: [],
         currentFolderId: folderId,
-        currentFolderName: MOCK_FOLDER_NAMES[folderId] || "Folder",
-        isMockData: true,
+        currentFolderName: "My Drive",
+        isMockData: false,
         accountIndex,
-        accounts: MOCK_ACCOUNTS,
+        accounts: [],
       };
     }
 
     const data = await response.json();
-
     const files: DriveFile[] = (data.files || []).map((file: any) => ({
       id: file.id,
       name: file.name,
@@ -140,16 +110,11 @@ export async function getDriveFiles(
   } catch (error) {
     console.error("Error fetching Google Drive files:", error);
     return {
-      files:
-        folderId === "root"
-          ? accountIndex === 1
-            ? MOCK_ROOT_FILES_ACC_1
-            : MOCK_ROOT_FILES_ACC_0
-          : MOCK_SUBFOLDER_FILES[folderId] || [],
+      files: [],
       currentFolderId: folderId,
-      isMockData: true,
+      isMockData: false,
       accountIndex,
-      accounts: MOCK_ACCOUNTS,
+      accounts: [],
     };
   }
 }
@@ -219,10 +184,9 @@ export async function getDriveItemById(
         };
       }
     } catch (e) {
-      console.warn("Failed to fetch item from Drive API, checking mock fallback:", e);
+      console.warn("Failed to fetch item from Drive API:", e);
     }
   }
 
-  // Fallback to mock data lookup
-  return findMockItemById(id) || null;
+  return null;
 }

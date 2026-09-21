@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getServerAccounts,
   removeServerAccount,
-  getValidAccessTokenForAccount,
+  clearAllServerAccounts,
 } from "@/lib/server-account-store";
 
 export const dynamic = "force-dynamic";
@@ -39,17 +39,21 @@ export async function GET() {
 }
 
 /**
- * DELETE /api/auth/accounts?id=ACCOUNT_ID
- * Removes an account from server-side store
+ * DELETE /api/auth/accounts?id=ACCOUNT_ID or ?all=true
+ * Removes an account or all accounts from server-side store
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const isAll = req.nextUrl.searchParams.get("all") === "true";
+    if (isAll) {
+      await clearAllServerAccounts();
+      return NextResponse.json({ success: true, clearedAll: true });
+    }
+
     const id = req.nextUrl.searchParams.get("id");
     if (!id) {
-      return NextResponse.json(
-        { error: "Account ID is required" },
-        { status: 400 }
-      );
+      await clearAllServerAccounts();
+      return NextResponse.json({ success: true, clearedAll: true });
     }
 
     await removeServerAccount(id);

@@ -48,27 +48,27 @@ export function DriveTableSkeleton({ rowCount = 7 }: DriveTableSkeletonProps) {
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-slate-200/80 bg-[#F8F9FA]/90 select-none">
               {/* Nama Column */}
-              <TableHead className="h-9 px-3.5 sm:px-4 py-2 text-xs font-semibold text-slate-700">
+              <TableHead className="h-9 px-3.5 sm:px-4 py-2 text-xs font-semibold text-slate-700 normal-case">
                 <span>Nama</span>
               </TableHead>
 
               {/* Tipe Column */}
-              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700">
+              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700 normal-case">
                 <span>Tipe</span>
               </TableHead>
 
               {/* Ukuran Column */}
-              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-28 text-xs font-semibold text-slate-700">
+              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-28 text-xs font-semibold text-slate-700 normal-case">
                 <span>Ukuran</span>
               </TableHead>
 
               {/* Diubah Column */}
-              <TableHead className="hidden md:table-cell h-9 px-3.5 sm:px-4 py-2 w-36 text-xs font-semibold text-slate-700">
+              <TableHead className="hidden md:table-cell h-9 px-3.5 sm:px-4 py-2 w-36 text-xs font-semibold text-slate-700 normal-case">
                 <span>Diubah</span>
               </TableHead>
 
               {/* Pemilik Column */}
-              <TableHead className="hidden lg:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700">
+              <TableHead className="hidden lg:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700 normal-case">
                 <span>Pemilik</span>
               </TableHead>
 
