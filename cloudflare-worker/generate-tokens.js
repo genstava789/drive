@@ -57,6 +57,43 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
+const http = require("http");
+
+async function startLocalReceiver(port = 8085) {
+  return new Promise((resolve) => {
+    const server = http.createServer(async (req, res) => {
+      try {
+        const reqUrl = new URL(req.url, `http://localhost:${port}`);
+        if (reqUrl.pathname === "/oauth2callback" || reqUrl.pathname === "/callback" || reqUrl.searchParams.has("code")) {
+          const code = reqUrl.searchParams.get("code");
+          if (code) {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(`
+              <!DOCTYPE html>
+              <html>
+              <head><meta charset="utf-8"><title>Otorisasi Berhasil</title></head>
+              <body style="font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+                <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;text-align:center;max-width:450px;">
+                  <h1 style="color:#10b981;margin:0 0 12px 0;">✅ Otorisasi Berhasil!</h1>
+                  <p style="color:#94a3b8;font-size:14px;line-height:1.5;">Kode otorisasi berhasil diterima oleh script generator. Anda dapat menutup tab ini sekarang dan kembali ke terminal.</p>
+                </div>
+              </body>
+              </html>
+            `);
+            server.close();
+            resolve(code);
+          }
+        }
+      } catch (_) {}
+    });
+
+    server.listen(port, () => {});
+    server.on("error", () => {
+      resolve(null);
+    });
+  });
+}
+
 function openBrowser(url) {
   const cmd =
     process.platform === "win32"
@@ -75,19 +112,34 @@ async function main() {
   console.log(`🆔 Client ID  : ${clientId}`);
   console.log(`🔒 Secret     : ${clientSecret.substring(0, 8)}********\n`);
 
-  // Determine redirect URI
-  let selectedRedirectUri = redirectUris[0] || "http://localhost:3000/api/auth/callback/google";
-  if (redirectUris.length > 1) {
-    console.log("Daftar redirect_uris terdaftar di credentials.json:");
-    redirectUris.forEach((uri, idx) => console.log(`  [${idx + 1}] ${uri}`));
-    const choice = await ask(`Pilih nomor redirect URI (default 1): `);
-    const num = parseInt(choice.trim(), 10);
-    if (!isNaN(num) && num >= 1 && num <= redirectUris.length) {
-      selectedRedirectUri = redirectUris[num - 1];
-    }
+  console.log("Pilih Metode Redirect URI:");
+  console.log("  [1] Localhost Otomatis (http://localhost:8085/oauth2callback)");
+  console.log("      ⭐ Paling mudah: Script otomatis menangkap token tanpa salin-tempel!");
+  console.log("      (Pastikan 'http://localhost:8085/oauth2callback' sudah ditambahkan di Google Cloud Console)\n");
+  console.log("  [2] URL Vercel dari credentials.json:");
+  console.log(`      (${redirectUris[0] || "Tidak ada"})\n`);
+  console.log("  [3] Masukkan Redirect URI kustom (misal URL Cloudflare Worker Anda)\n");
+
+  const methodChoice = await ask("Pilih opsi [1 / 2 / 3] (default 1): ");
+  let selectedRedirectUri = "http://localhost:8085/oauth2callback";
+  let useLocalServer = true;
+
+  const choiceTrimmed = methodChoice.trim();
+  if (choiceTrimmed === "2") {
+    selectedRedirectUri = redirectUris[0] || "http://localhost:8085/oauth2callback";
+    useLocalServer = false;
+  } else if (choiceTrimmed === "3") {
+    const customUri = await ask("Masukkan Redirect URI terdaftar Anda: ");
+    selectedRedirectUri = customUri.trim() || "http://localhost:8085/oauth2callback";
+    useLocalServer = selectedRedirectUri.includes("localhost:8085");
   }
 
   console.log(`\n🔗 Redirect URI yang digunakan: ${selectedRedirectUri}\n`);
+
+  let localServerPromise = null;
+  if (useLocalServer) {
+    localServerPromise = startLocalReceiver(8085);
+  }
 
   // Construct OAuth Consent URL
   const scope = "https://www.googleapis.com/auth/drive.readonly";
@@ -110,30 +162,48 @@ async function main() {
 
   openBrowser(authUrl);
 
-  console.log("--------------------------------------------------------");
-  console.log("LANGKAH 2: Setelah login dan klik 'Izinkan/Allow':");
-  console.log("Browser akan diarahkan ke halaman redirect (Vercel).");
-  console.log("👉 Salin SELURUH URL dari address bar browser Anda");
-  console.log("   (yang ada tulisan '?code=4/0...') lalu tempel di bawah:");
-  console.log("--------------------------------------------------------\n");
+  let code = null;
 
-  let trimmed = "";
-  while (!trimmed) {
-    const inputCodeOrUrl = await ask("Tempelkan URL atau kode di sini: ");
-    trimmed = inputCodeOrUrl.trim();
-    if (!trimmed) {
-      console.log("⚠️ Input masih kosong. Silakan salin URL dari address bar browser dan tempel di sini.");
+  if (useLocalServer) {
+    console.log("⏳ Menunggu Anda menyetujui izin di browser...");
+    console.log("(Script akan otomatis mendeteksi ketika Anda selesai klik 'Izinkan' di browser)\n");
+
+    // Race between automatic local receiver and manual paste
+    const manualPrompt = (async () => {
+      const input = await ask("Atau tempelkan kode/URL di sini jika browser tidak otomatis menutup: ");
+      return input.trim();
+    })();
+
+    const result = await Promise.race([localServerPromise, manualPrompt]);
+    if (result) {
+      code = result;
     }
   }
 
-  let code = trimmed;
+  if (!code) {
+    console.log("--------------------------------------------------------");
+    console.log("LANGKAH 2: Setelah login dan klik 'Izinkan/Allow':");
+    console.log("👉 Salin seluruh URL atau nilai '?code=...' dari address bar browser");
+    console.log("--------------------------------------------------------\n");
+
+    let trimmed = "";
+    while (!trimmed) {
+      const inputCodeOrUrl = await ask("Tempelkan URL atau kode di sini: ");
+      trimmed = inputCodeOrUrl.trim();
+      if (!trimmed) {
+        console.log("⚠️ Input masih kosong. Silakan salin URL dari address bar browser.");
+      }
+    }
+    code = trimmed;
+  }
+
   // If user pasted full URL
-  if (trimmed.includes("code=")) {
+  if (code && code.includes("code=")) {
     try {
-      const parsedUrl = new URL(trimmed.startsWith("http") ? trimmed : `http://dummy.com/${trimmed}`);
-      code = parsedUrl.searchParams.get("code") || trimmed;
+      const parsedUrl = new URL(code.startsWith("http") ? code : `http://dummy.com/${code}`);
+      code = parsedUrl.searchParams.get("code") || code;
     } catch (_) {
-      const match = trimmed.match(/[?&]code=([^&]+)/);
+      const match = code.match(/[?&]code=([^&]+)/);
       if (match) {
         code = decodeURIComponent(match[1]);
       }
