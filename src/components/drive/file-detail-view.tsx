@@ -239,7 +239,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
         )}
 
         {/* PDF Document Preview */}
-        {isPdf && <PdfPreview file={file} />}
+        {isPdf && <PdfPreview file={file} accountIndex={accountIndex} />}
 
         {/* Markdown Document Preview */}
         {isMarkdown && <MarkdownPreview file={file} />}
