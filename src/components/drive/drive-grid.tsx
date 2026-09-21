@@ -118,6 +118,7 @@ export function DriveGrid({
               <div
                 key={folder.id}
                 onClick={() => handleItemClick(folder)}
+                onMouseEnter={() => router.prefetch(`/${accountIndex}/${folder.id}`)}
                 className="group flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all duration-150 cursor-pointer"
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -148,6 +149,7 @@ export function DriveGrid({
                 <div
                   key={file.id}
                   onClick={() => handleItemClick(file)}
+                  onMouseEnter={() => router.prefetch(`/${accountIndex}/${file.id}`)}
                   className="group relative flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-blue-400 hover:shadow-md transition-all duration-150 cursor-pointer overflow-hidden"
                 >
                   <div className="flex items-start justify-between">

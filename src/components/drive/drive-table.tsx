@@ -141,7 +141,24 @@ export function DriveTable({
       },
       {
         id: "category",
-        header: () => <span className="hidden sm:inline">Tipe</span>,
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <button
+              className="flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            >
+              <span>Tipe</span>
+              {isSorted === "asc" ? (
+                <ArrowUp className="h-3 w-3 text-blue-600" />
+              ) : isSorted === "desc" ? (
+                <ArrowDown className="h-3 w-3 text-blue-600" />
+              ) : (
+                <ArrowUpDown className="h-3 w-3 text-slate-400" />
+              )}
+            </button>
+          );
+        },
         cell: ({ row }) => {
           const category = getFileCategory(row.original.mimeType);
           const badgeMap: Record<
@@ -177,12 +194,17 @@ export function DriveTable({
           };
 
           return (
-            <div className="hidden sm:block">
+            <div className="flex items-center">
               <Badge variant={info.variant} className="text-[10px] font-normal py-0">
                 {info.label}
               </Badge>
             </div>
           );
+        },
+        sortingFn: (rowA, rowB) => {
+          const catA = getFileCategory(rowA.original.mimeType);
+          const catB = getFileCategory(rowB.original.mimeType);
+          return catA.localeCompare(catB);
         },
       },
       {
@@ -366,6 +388,25 @@ export function DriveTable({
   const rowCount = table.getFilteredRowModel().rows.length;
   const pageCount = table.getPageCount();
 
+  const getColumnClass = (columnId: string) => {
+    switch (columnId) {
+      case "name":
+        return "px-3.5 sm:px-4 py-2 sm:py-2.5 text-left";
+      case "category":
+        return "hidden sm:table-cell px-3.5 sm:px-4 py-2 sm:py-2.5 w-32 min-w-[115px] text-left";
+      case "size":
+        return "hidden sm:table-cell px-3.5 sm:px-4 py-2 sm:py-2.5 w-28 min-w-[90px] text-left";
+      case "modifiedTime":
+        return "hidden md:table-cell px-3.5 sm:px-4 py-2 sm:py-2.5 w-36 min-w-[130px] text-left";
+      case "owner":
+        return "hidden lg:table-cell px-3.5 sm:px-4 py-2 sm:py-2.5 w-32 min-w-[110px] text-left";
+      case "actions":
+        return "px-2.5 sm:px-3 py-2 sm:py-2.5 w-12 text-right";
+      default:
+        return "px-3.5 sm:px-4 py-2 sm:py-2.5 text-left";
+    }
+  };
+
   return (
     <div className="space-y-2.5">
       {/* Table Surface Card */}
@@ -373,11 +414,13 @@ export function DriveTable({
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-slate-200/80 bg-[#F8F9FA]/90">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="h-8.5 px-3 py-1.5 text-xs"
+                    className={`h-9 text-xs font-semibold text-slate-700 select-none ${getColumnClass(
+                      header.column.id
+                    )}`}
                   >
                     {header.isPlaceholder
                       ? null
@@ -395,12 +438,15 @@ export function DriveTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="hover:bg-blue-50/30 transition-colors"
+                  className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                  onMouseEnter={() => router.prefetch(`/${accountIndex}/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="p-2 sm:p-3 px-2.5 sm:px-3.5"
+                      className={`align-middle ${getColumnClass(
+                        cell.column.id
+                      )}`}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

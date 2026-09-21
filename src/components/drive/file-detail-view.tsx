@@ -24,6 +24,8 @@ import {
   Clock,
   Maximize2,
 } from "lucide-react";
+import { PdfPreview } from "./pdf-preview";
+import { MarkdownPreview } from "./markdown-preview";
 
 interface FileDetailViewProps {
   file: DriveFile;
@@ -39,6 +41,17 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
     category === "image" ||
     file.mimeType.startsWith("image/") ||
     !!file.thumbnailLink;
+
+  const isPdf =
+    category === "pdf" ||
+    file.mimeType === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf");
+
+  const isMarkdown =
+    file.mimeType === "text/markdown" ||
+    file.mimeType === "text/x-markdown" ||
+    file.name.toLowerCase().endsWith(".md") ||
+    file.name.toLowerCase().endsWith(".markdown");
 
   const downloadUrl =
     file.webContentLink ||
@@ -224,6 +237,12 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             </button>
           </div>
         )}
+
+        {/* PDF Document Preview */}
+        {isPdf && <PdfPreview file={file} />}
+
+        {/* Markdown Document Preview */}
+        {isMarkdown && <MarkdownPreview file={file} />}
 
         {/* Metadata Rows List */}
         <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden">

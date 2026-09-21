@@ -122,6 +122,18 @@ export const MOCK_ROOT_FILES_ACC_0: DriveFile[] = [
     webViewLink: "https://drive.google.com/file/d/file-demo-video-mp4",
     webContentLink: "https://drive.google.com/uc?export=download&id=file-demo-video-mp4",
   },
+  {
+    id: "file-readme-markdown",
+    name: "README_Panduan_Pengembangan.md",
+    mimeType: "text/markdown",
+    size: 4250, // 4.25 KB
+    modifiedTime: "2026-09-21T06:30:00Z",
+    createdTime: "2026-09-01T08:00:00Z",
+    shared: false,
+    owners: [{ displayName: "Levi Utama", me: true }],
+    webViewLink: "https://drive.google.com/file/d/file-readme-markdown",
+    webContentLink: "https://drive.google.com/uc?export=download&id=file-readme-markdown",
+  },
 ];
 
 export const MOCK_ROOT_FILES_ACC_1: DriveFile[] = [

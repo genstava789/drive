@@ -12,6 +12,7 @@ import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { getActiveAccounts } from "@/lib/account-store";
+import { DriveTableSkeleton } from "./drive-table-skeleton";
 
 interface DriveExplorerProps {
   accountIndex?: number;
@@ -170,13 +171,7 @@ export function DriveExplorer({
 
         {/* Loading Skeleton */}
         {isLoading ? (
-          <div className="space-y-2 py-3">
-            <Skeleton className="h-8.5 w-full rounded-lg" />
-            <Skeleton className="h-11 w-full rounded-lg" />
-            <Skeleton className="h-11 w-full rounded-lg" />
-            <Skeleton className="h-11 w-full rounded-lg" />
-            <Skeleton className="h-11 w-full rounded-lg" />
-          </div>
+          <DriveTableSkeleton rowCount={7} />
         ) : viewMode === "table" ? (
           /* Headless TanStack Table View with Route Navigation */
           <DriveTable
