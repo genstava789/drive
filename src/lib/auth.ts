@@ -4,19 +4,41 @@ import fs from "fs";
 import path from "path";
 import { GoogleAccount } from "@/types/drive";
 
-// Ensure AUTH_URL and NEXTAUTH_URL point to base origins (strip /api/auth/... if present)
-if (process.env.AUTH_URL && process.env.AUTH_URL.includes("/api/auth")) {
-  process.env.AUTH_URL = process.env.AUTH_URL.split("/api/auth")[0];
-}
-if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.includes("/api/auth")) {
-  process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL.split("/api/auth")[0];
+// Konfigurasi dinamis AUTH_URL dan NEXTAUTH_URL untuk pengujian localhost & deployment Vercel
+const isVercel = Boolean(
+  process.env.VERCEL === "1" ||
+  process.env.VERCEL_ENV ||
+  process.env.VERCEL_URL
+);
+
+if (isVercel) {
+  // Saat berjalan di platform Vercel, arahkan ke URL domain produksi Vercel
+  const prodUrl =
+    (process.env.AUTH_URL && !process.env.AUTH_URL.includes("localhost"))
+      ? process.env.AUTH_URL
+      : process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "https://drive-iota-vert.vercel.app";
+
+  process.env.AUTH_URL = prodUrl.split("/api/auth")[0].replace(/\/$/, "");
+  process.env.NEXTAUTH_URL = process.env.AUTH_URL;
+} else if (process.env.NODE_ENV === "development" || !process.env.AUTH_URL) {
+  // Saat pengujian lokal (development / localhost)
+  process.env.AUTH_URL = "http://localhost:3000";
+  process.env.NEXTAUTH_URL = "http://localhost:3000";
+} else {
+  // Pengujian lokal mandiri lainnya
+  process.env.AUTH_URL = process.env.AUTH_URL.split("/api/auth")[0].replace(/\/$/, "");
+  process.env.NEXTAUTH_URL = process.env.AUTH_URL;
 }
 
 /**
  * Membaca kredensial Google OAuth:
  * Prioritas 1: Environment variable GOOGLE_CLIENT_ID / AUTH_GOOGLE_ID
- * Prioritas 2: credentials.json di root project
- * Prioritas 3 (Vercel Fallback): Kredensial pengguna terkonfigurasi (base64 encoded agar lolos push protection)
+ * Prioritas 2: credentials.json di root project (tipe web atau installed)
+ * Prioritas 3 (Vercel Fallback): Kredensial pengguna terkonfigurasi resmi
  */
 function getGoogleCredentials() {
   const envClientId = (
@@ -48,7 +70,7 @@ function getGoogleCredentials() {
     if (fs.existsSync(credPath)) {
       const fileContent = fs.readFileSync(credPath, "utf-8");
       const parsed = JSON.parse(fileContent);
-      const creds = parsed.installed || parsed.web;
+      const creds = parsed.web || parsed.installed;
 
       if (creds?.client_id && creds?.client_secret) {
         return {

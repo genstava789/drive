@@ -19,12 +19,14 @@ interface OAuthSetupDialogProps {
 export function OAuthSetupDialog({ open, onOpenChange }: OAuthSetupDialogProps) {
   const [copiedLocalCallback, setCopiedLocalCallback] = useState(false);
   const [copiedVercelCallback, setCopiedVercelCallback] = useState(false);
+  const [copiedLocalOrigin, setCopiedLocalOrigin] = useState(false);
   const [copiedVercelOrigin, setCopiedVercelOrigin] = useState(false);
   const [copiedEnv, setCopiedEnv] = useState(false);
 
   const localCallbackUrl = "http://localhost:3000/api/auth/callback/google";
   const vercelCallbackUrl =
     "https://drive-iota-vert.vercel.app/api/auth/callback/google";
+  const localOrigin = "http://localhost:3000";
   const vercelOrigin = "https://drive-iota-vert.vercel.app";
 
   const envSample = `GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
@@ -53,18 +55,18 @@ AUTH_URL="https://drive-iota-vert.vercel.app"`;
             Panduan Menghubungkan Akun Google OAuth
           </DialogTitle>
           <DialogDescription>
-            Panduan lengkap agar login Google berfungsi di localhost dan Vercel tanpa error &quot;Access blocked: Authorization Error&quot;.
+            Panduan lengkap menyelesaikan <strong>Error 400: redirect_uri_mismatch</strong> dan mengaktifkan login Google di localhost & Vercel.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3.5 text-xs sm:text-sm text-slate-600 mt-2">
           {/* Troubleshooting Warning */}
-          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-red-800 text-xs space-y-1">
-            <p className="font-bold flex items-center gap-1.5 text-red-900">
-              <ShieldAlert className="h-4 w-4 text-red-600" /> Solusi Error &quot;Access blocked: Authorization Error&quot; di Vercel
+          <div className="rounded-lg bg-amber-50 border border-amber-300 p-3 text-amber-900 text-xs space-y-1.5 shadow-sm">
+            <p className="font-bold flex items-center gap-1.5 text-amber-950">
+              <ShieldAlert className="h-4 w-4 text-amber-600" /> Solusi Error 400: redirect_uri_mismatch
             </p>
-            <p className="text-[11px] leading-relaxed">
-              Pesan error dari Google ini terjadi karena <strong>Authorized redirect URIs</strong> di Google Cloud Console belum menyertakan URL Vercel dengan path <code>/api/auth/callback/google</code>, atau tipe OAuth Client bukan <strong>Web application</strong>.
+            <p className="text-[11px] leading-relaxed text-amber-900">
+              Error ini terjadi karena Google Cloud Console belum mendaftarkan URL callback pengalihan aplikasi Anda atau tipe client OAuth yang dibuat bukan <strong>Web application</strong>. Ikuti Langkah 2 di bawah untuk menyalin URL callback ke Google Cloud Console.
             </p>
           </div>
 
@@ -154,7 +156,7 @@ AUTH_URL="https://drive-iota-vert.vercel.app"`;
               </div>
             </div>
 
-            {/* Vercel JavaScript Origin */}
+            {/* JavaScript Origins */}
             <div className="ml-7 space-y-1 pt-1">
               <span className="text-[11px] font-semibold text-slate-700">
                 B. Authorized JavaScript origins:
@@ -170,6 +172,27 @@ AUTH_URL="https://drive-iota-vert.vercel.app"`;
                   className="h-6 px-2 text-xs"
                 >
                   {copiedVercelOrigin ? (
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Tersalin
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Copy className="h-3 w-3" /> Salin
+                    </span>
+                  )}
+                </Button>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-white border border-slate-200 px-2.5 py-1.5 font-mono text-[11px] text-slate-700">
+                <span className="truncate">{localOrigin}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyText(localOrigin, setCopiedLocalOrigin)
+                  }
+                  className="h-6 px-2 text-xs"
+                >
+                  {copiedLocalOrigin ? (
                     <span className="text-emerald-600 flex items-center gap-1">
                       <Check className="h-3 w-3" /> Tersalin
                     </span>
