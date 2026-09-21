@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,18 @@ import {
   HelpCircle,
   Plus,
   Check,
-  UserCheck,
-  ShieldCheck,
   ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
 import { MOCK_ACCOUNTS } from "@/lib/mock-data";
+import {
+  filterAvailableAccounts,
+  removeAccountById,
+  restoreAllAccounts,
+  getActiveAccounts,
+} from "@/lib/account-store";
+import { GoogleAccount } from "@/types/drive";
 
 interface UserNavProps {
   accountIndex?: number;
@@ -32,24 +38,22 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [guideOpen, setGuideOpen] = useState(false);
+  const [accounts, setAccounts] = useState<GoogleAccount[]>([]);
 
-  // Collect accounts: either from active session.accounts or fallback to demo accounts
-  const isRealAuth = !!session?.user;
-  const accounts =
-    isRealAuth && session?.accounts && session.accounts.length > 0
-      ? session.accounts
-      : isRealAuth && session?.user
-      ? [
-          {
-            id: session.user.id || "primary",
-            name: session.user.name || "Akun Google",
-            email: session.user.email || "",
-            image: session.user.image || undefined,
-          },
-        ]
-      : MOCK_ACCOUNTS;
+  // Collect and filter available accounts
+  useEffect(() => {
+    const updateAccounts = () => {
+      setAccounts(getActiveAccounts(session));
+    };
 
-  // Active account based on accountIndex URL parameter
+    updateAccounts();
+
+    window.addEventListener("levidrive_accounts_changed", updateAccounts);
+    return () => {
+      window.removeEventListener("levidrive_accounts_changed", updateAccounts);
+    };
+  }, [session]);
+
   const activeAccount = accounts[accountIndex] || accounts[0];
 
   const handleSwitchAccount = (targetIndex: number) => {
@@ -61,6 +65,28 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
       prompt: "select_account",
       callbackUrl: `/${accounts.length}`,
     });
+  };
+
+  const handleLogoutSingleAccount = (
+    e: React.MouseEvent,
+    account: GoogleAccount,
+    idx: number
+  ) => {
+    e.stopPropagation();
+    removeAccountById(account.id || account.email);
+
+    if (session?.user && accounts.length <= 1) {
+      signOut({ redirect: false });
+    }
+
+    // Switch to another remaining account or /0
+    const nextIdx = idx === accountIndex ? 0 : accountIndex > idx ? accountIndex - 1 : accountIndex;
+    router.push(`/${nextIdx}`);
+  };
+
+  const handleResetDemoAccounts = () => {
+    restoreAllAccounts();
+    router.push("/0");
   };
 
   return (
@@ -79,6 +105,44 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
 
         {status === "loading" ? (
           <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
+        ) : accounts.length === 0 ? (
+          /* No active accounts logged in */
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              onClick={handleAddAccount}
+              className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs flex items-center gap-1.5"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
+                <path
+                  fill="#EA4335"
+                  d="M12 5c1.54 0 2.92.54 4.01 1.43l3.01-3.01C17.19 1.77 14.77 1 12 1 7.42 1 3.53 3.61 1.64 7.39l3.66 2.84C6.18 7.35 8.84 5 12 5z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.68 2.86c2.14-1.98 3.74-4.89 3.74-8.68z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.3 14.77c-.23-.68-.36-1.41-.36-2.17s.13-1.49.36-2.17L1.64 7.59C.6 9.68 0 12 0 14.4s.6 4.72 1.64 6.81l3.66-2.84z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.68-2.86c-1.07.72-2.45 1.16-4.25 1.16-3.16 0-5.82-2.35-6.7-5.23L1.64 16c1.89 3.78 5.78 6.4 10.36 6.4z"
+                />
+              </svg>
+              <span>Login Google</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={handleResetDemoAccounts}
+              title="Kembalikan Akun Demo"
+              className="h-8 w-8 text-slate-400 hover:text-slate-700"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -105,17 +169,17 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-64 p-1.5 shadow-lg">
+            <DropdownMenuContent align="end" className="w-68 p-1.5 shadow-lg">
               <DropdownMenuLabel className="px-2 py-1">
                 <p className="text-xs font-bold text-slate-800">Daftar Akun Google</p>
                 <p className="text-[11px] text-slate-400 font-normal">
-                  Pilih akun untuk beralih instan
+                  Pilih akun untuk beralih atau logout per akun
                 </p>
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator />
 
-              {/* Account list */}
+              {/* Account list with individual logout button */}
               <div className="space-y-1 py-1">
                 {accounts.map((acc, idx) => {
                   const isActive = idx === accountIndex;
@@ -123,13 +187,13 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                     <div
                       key={acc.id || idx}
                       onClick={() => handleSwitchAccount(idx)}
-                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                      className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
                         isActive
                           ? "bg-blue-50/80 border border-blue-200/60"
                           : "hover:bg-slate-100/70"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
                         {acc.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -153,12 +217,20 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-white text-slate-500 border border-slate-200">
-                          /{idx}
-                        </span>
                         {isActive && (
-                          <Check className="h-4 w-4 text-blue-600" />
+                          <Check className="h-3.5 w-3.5 text-blue-600 mr-0.5" />
                         )}
+
+                        {/* Individual Logout button on each account */}
+                        <button
+                          onClick={(e) =>
+                            handleLogoutSingleAccount(e, acc, idx)
+                          }
+                          title={`Logout akun ${acc.name}`}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer p-0.5"
+                        >
+                          <LogOut className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -176,27 +248,23 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                 <span>Tambah Akun Google Lain</span>
               </DropdownMenuItem>
 
+              {/* Reset demo accounts if needed */}
+              <DropdownMenuItem
+                onClick={handleResetDemoAccounts}
+                className="gap-2 text-xs text-slate-600 cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                <span>Muat Ulang Semua Akun</span>
+              </DropdownMenuItem>
+
               {/* Guide modal link */}
               <DropdownMenuItem
                 onClick={() => setGuideOpen(true)}
                 className="gap-2 text-xs text-slate-600 cursor-pointer"
               >
                 <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-                <span>Panduan OAuth & credentials.json</span>
+                <span>Panduan OAuth</span>
               </DropdownMenuItem>
-
-              {isRealAuth && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => signOut({ callbackUrl: "/0" })}
-                    className="gap-2 text-xs text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Keluar (Sign Out)</span>
-                  </DropdownMenuItem>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

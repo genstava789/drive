@@ -11,6 +11,7 @@ import { DriveGrid } from "./drive-grid";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
+import { getActiveAccounts } from "@/lib/account-store";
 
 interface DriveExplorerProps {
   accountIndex?: number;
@@ -34,6 +35,7 @@ export function DriveExplorer({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMockData, setIsMockData] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasNoAccount, setHasNoAccount] = useState<boolean>(false);
 
   // Filters & Views
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -41,9 +43,40 @@ export function DriveExplorer({
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
+  // Synchronize accounts state
+  useEffect(() => {
+    const checkAccounts = () => {
+      const active = getActiveAccounts(session);
+      if (active.length === 0) {
+        setHasNoAccount(true);
+        setFiles([]);
+        setIsLoading(false);
+      } else {
+        setHasNoAccount(false);
+        if (accountIndex >= active.length) {
+          router.push("/0");
+        }
+      }
+    };
+
+    checkAccounts();
+    window.addEventListener("levidrive_accounts_changed", checkAccounts);
+    return () => {
+      window.removeEventListener("levidrive_accounts_changed", checkAccounts);
+    };
+  }, [session, accountIndex, router]);
+
   // Fetch Drive items from API
   const fetchFiles = useCallback(
     async (folderId: string) => {
+      const active = getActiveAccounts(session);
+      if (active.length === 0) {
+        setHasNoAccount(true);
+        setFiles([]);
+        setIsLoading(false);
+        return;
+      }
+      setHasNoAccount(false);
       setIsLoading(true);
       setError(null);
       try {
@@ -76,7 +109,7 @@ export function DriveExplorer({
         setIsLoading(false);
       }
     },
-    [accountIndex, initialFolderName]
+    [accountIndex, initialFolderName, session]
   );
 
   useEffect(() => {
@@ -147,15 +180,17 @@ export function DriveExplorer({
         ) : viewMode === "table" ? (
           /* Headless TanStack Table View with Route Navigation */
           <DriveTable
-            data={filteredFiles}
+            data={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
             searchQuery={searchQuery}
+            hasNoAccount={hasNoAccount}
           />
         ) : (
           /* Visual Grid View with Route Navigation */
           <DriveGrid
-            files={filteredFiles}
+            files={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
+            hasNoAccount={hasNoAccount}
           />
         )}
       </div>
