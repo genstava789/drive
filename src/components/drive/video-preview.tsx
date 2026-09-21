@@ -44,7 +44,7 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
-  // Video player is hidden by default
+  // Video player and its title/badges are completely hidden/collapsed by default
   const [isOpen, setIsOpen] = useState(false);
 
   // Direct HTTP 206 streaming proxy URL
@@ -70,9 +70,49 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
     ? "480p SD"
     : null;
 
+  // 1. COLLAPSED STATE (Default):
+  // Clean UI Card with poster and play icon. No title or badges sitting above it.
+  if (!isOpen) {
+    return (
+      <div
+        onClick={() => setIsOpen(true)}
+        className="group relative aspect-video sm:aspect-[21/9] md:aspect-video w-full cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/90 bg-slate-950 shadow-xs flex items-center justify-center select-none transition-all hover:border-blue-400 hover:shadow-md"
+        title="Klik untuk membuka pemutar video (Open Video)"
+      >
+        {posterUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={posterUrl}
+              alt={file.name}
+              className="w-full h-full object-cover opacity-75 group-hover:opacity-85 group-hover:scale-105 transition-all duration-300"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/50 group-hover:from-black/75 transition-colors" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(37,99,235,0.2),transparent_70%)]" />
+          </div>
+        )}
+
+        {/* Centered Glowing Play Button & "Open Video" Pill */}
+        <div className="relative z-10 flex flex-col items-center gap-2.5 sm:gap-3">
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-900/50 ring-4 ring-white/25 group-hover:scale-110 group-hover:bg-blue-500 transition-all duration-300">
+            <Play className="h-6 w-6 sm:h-7 sm:w-7 fill-white ml-0.5 text-white" />
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-slate-900/90 px-4 py-1.5 text-xs sm:text-sm font-semibold text-white backdrop-blur shadow-lg border border-white/10 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all">
+            <span>Open Video</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. OPEN STATE:
+  // Both the video player AND the title element, quality badge, format badge, and size badge are now displayed together!
   return (
     <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-xs transition-all w-full">
-      {/* Header Info: Filename and Badges (Clean, Mobile-Friendly, No Truncation Glitches) */}
+      {/* Header Info: Title & Quality Badges (Clean, Mobile-Friendly, No Truncation) */}
       <div className="p-3 sm:p-3.5 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between gap-2.5">
         <div className="flex items-start gap-2.5 min-w-0 flex-1">
           <div className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs shrink-0 mt-0.5">
@@ -94,7 +134,7 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
                 {videoFormat}
               </Badge>
 
-              {/* Resolution Badge */}
+              {/* Resolution / Quality Badge */}
               {resolution && (
                 <Badge
                   variant="info"
@@ -114,68 +154,30 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
           </div>
         </div>
 
-        {/* Toggle Collapse Button when Player is Open */}
-        {isOpen && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsOpen(false)}
-            className="h-7.5 px-2 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg shrink-0 gap-1 cursor-pointer"
-            title="Sembunyikan Pemutar Video"
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-            <span className="hidden xs:inline">Tutup</span>
-          </Button>
-        )}
+        {/* Close Button to collapse back to Open Video card */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsOpen(false)}
+          className="h-7.5 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg shrink-0 gap-1 cursor-pointer"
+          title="Tutup Pemutar Video"
+        >
+          <ChevronUp className="h-3.5 w-3.5" />
+          <span>Tutup</span>
+        </Button>
       </div>
 
-      {/* Main Area: Collapsed Card or Active Vidstack Player */}
-      {!isOpen ? (
-        /* Collapsed State: Sleek Preview Card with Centered Play Button & "Open Video" */
-        <div
-          onClick={() => setIsOpen(true)}
-          className="group relative aspect-video w-full cursor-pointer overflow-hidden bg-slate-950 flex items-center justify-center select-none"
-          title="Klik untuk membuka pemutar video"
-        >
-          {posterUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={posterUrl}
-                alt={file.name}
-                className="w-full h-full object-cover opacity-80 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/40 group-hover:from-black/70 transition-colors" />
-            </>
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(37,99,235,0.15),transparent_70%)]" />
-            </div>
-          )}
-
-          {/* Centered Glowing Play Button & "Open Video" */}
-          <div className="relative z-10 flex flex-col items-center gap-2 sm:gap-2.5">
-            <div className="flex h-13 w-13 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-600/90 text-white shadow-xl shadow-blue-900/40 backdrop-blur-xs ring-4 ring-white/20 group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-300">
-              <Play className="h-5.5 w-5.5 sm:h-7 sm:w-7 fill-white ml-0.5 text-white" />
-            </div>
-            <span className="rounded-full bg-slate-900/80 px-3 py-1 text-[11px] sm:text-xs font-semibold text-white backdrop-blur shadow-md group-hover:bg-blue-600 transition-colors">
-              Open Video
-            </span>
-          </div>
-        </div>
-      ) : (
-        /* Open State: Active Vidstack Player */
-        <div className="w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
-          <VidstackPlayer
-            src={streamUrl}
-            title={file.name}
-            poster={posterUrl}
-            mimeType={file.mimeType}
-            autoPlay={true}
-            className="w-full h-full"
-          />
-        </div>
-      )}
+      {/* Vidstack Video Player */}
+      <div className="w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
+        <VidstackPlayer
+          src={streamUrl}
+          title={file.name}
+          poster={posterUrl}
+          mimeType={file.mimeType}
+          autoPlay={true}
+          className="w-full h-full"
+        />
+      </div>
     </div>
   );
 }
