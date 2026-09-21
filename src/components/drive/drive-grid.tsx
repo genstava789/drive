@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DriveFile } from "@/types/drive";
 import { FileTypeIcon } from "./file-type-icon";
 import { formatBytes, getFileCategory, getDownloadUrl } from "@/lib/utils";
-import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn, FileQuestion, Download, Copy } from "lucide-react";
+import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn, FileQuestion, Download, Copy, Play } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -238,8 +238,17 @@ export function DriveGrid({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem onClick={() => handleItemClick(file)}>
-                            <Eye className="h-3.5 w-3.5 mr-2 text-blue-500" />
-                            Detail Berkas
+                            {category === "video" ? (
+                              <>
+                                <Play className="h-3.5 w-3.5 mr-2 text-blue-600 fill-blue-600" />
+                                Tonton Video
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                                Detail Berkas
+                              </>
+                            )}
                           </DropdownMenuItem>
                           {file.webViewLink && (
                             <DropdownMenuItem asChild>
@@ -279,15 +288,22 @@ export function DriveGrid({
                     </div>
                   </div>
 
-                  {/* Thumbnail if image */}
-                  {category === "image" && file.thumbnailLink ? (
-                    <div className="my-2 h-16 sm:h-20 w-full overflow-hidden rounded-md bg-slate-50 flex items-center justify-center">
+                  {/* Thumbnail if image or video */}
+                  {(category === "image" || category === "video") && file.thumbnailLink ? (
+                    <div className="relative my-2 h-16 sm:h-20 w-full overflow-hidden rounded-md bg-slate-900 flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={file.thumbnailLink}
                         alt={file.name}
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform opacity-90"
                       />
+                      {category === "video" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10 transition-colors">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600/90 text-white shadow-md group-hover:scale-110 transition-transform">
+                            <Play className="h-3.5 w-3.5 fill-white ml-0.5" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="my-2" />

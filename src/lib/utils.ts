@@ -151,3 +151,16 @@ export function getDownloadUrl(fileId: string, fileName?: string): string {
   // Safe fallback to direct Google Drive download URL
   return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
 }
+
+/**
+ * Generate direct video stream URL for Vidstack video player.
+ * Uses the internal /api/drive/stream proxy supporting HTTP 206 Byte Ranges.
+ */
+export function getVideoStreamUrl(fileId: string, accountIndex = 0): string {
+  const workerBaseUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL?.replace(/\/+$/, "");
+  if (workerBaseUrl && process.env.NEXT_PUBLIC_USE_CF_STREAM === "true") {
+    return `${workerBaseUrl}/download?id=${encodeURIComponent(fileId)}&inline=true`;
+  }
+  return `/api/drive/stream?id=${encodeURIComponent(fileId)}&accountIndex=${accountIndex}`;
+}
+

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { PdfPreview } from "./pdf-preview";
 import { MarkdownPreview } from "./markdown-preview";
+import { VideoPreview } from "./video-preview";
 
 interface FileDetailViewProps {
   file: DriveFile;
@@ -49,10 +50,16 @@ export function FileDetailView({
   }, [file?.id]);
 
   const category = getFileCategory(file.mimeType, file.name);
+  const isVideo =
+    category === "video" ||
+    file.mimeType.startsWith("video/") ||
+    /\.(mp4|mkv|webm|mov|avi|wmv|flv|m4v|ts|ogv)$/i.test(file.name);
+
   const isImage =
-    category === "image" ||
-    file.mimeType.startsWith("image/") ||
-    !!file.thumbnailLink;
+    !isVideo &&
+    (category === "image" ||
+      file.mimeType.startsWith("image/") ||
+      !!file.thumbnailLink);
 
   const isPdf =
     category === "pdf" ||
@@ -293,6 +300,9 @@ export function FileDetailView({
             )}
           </div>
         </div>
+
+        {/* Video Player Preview with Vidstack & Direct Streaming */}
+        {isVideo && <VideoPreview file={file} accountIndex={accountIndex} />}
 
         {/* Media / Image Preview with yet-another-react-lightbox Slide trigger */}
         {isImage && imageSrc && (

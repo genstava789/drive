@@ -42,6 +42,7 @@ import {
   LogIn,
   SlidersHorizontal,
   Check,
+  Play,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -407,6 +408,7 @@ export function DriveTable({
         cell: ({ row }) => {
           const file = row.original;
           const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+          const category = getFileCategory(file.mimeType, file.name);
 
           return (
             <div
@@ -429,6 +431,11 @@ export function DriveTable({
                       <>
                         <Folder className="h-3.5 w-3.5 mr-2 text-amber-500" />
                         Buka Folder
+                      </>
+                    ) : category === "video" ? (
+                      <>
+                        <Play className="h-3.5 w-3.5 mr-2 text-blue-600 fill-blue-600" />
+                        Tonton Video
                       </>
                     ) : (
                       <>
