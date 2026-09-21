@@ -116,7 +116,7 @@ export function DriveTable({
           JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
         );
       }
-      router.push(`/${accountIndex}/${file.id}`);
+      router.push(`/${accountIndex}/file/${file.id}`);
     }
   };
 
@@ -725,9 +725,9 @@ export function DriveTable({
                       onPrefetchFolder(row.original.id);
                     }
                     router.prefetch(
-                      `/${accountIndex}/${row.original.id}${
-                        isFolder ? "?type=folder" : ""
-                      }`
+                      isFolder
+                        ? `/${accountIndex}/${row.original.id}?type=folder`
+                        : `/${accountIndex}/file/${row.original.id}`
                     );
                   }}
                 >

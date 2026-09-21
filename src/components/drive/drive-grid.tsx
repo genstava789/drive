@@ -70,7 +70,7 @@ export function DriveGrid({
           JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
         );
       }
-      router.push(`/${accountIndex}/${file.id}`);
+      router.push(`/${accountIndex}/file/${file.id}`);
     }
   };
 
@@ -209,7 +209,7 @@ export function DriveGrid({
                 <div
                   key={file.id}
                   onClick={() => handleItemClick(file)}
-                  onMouseEnter={() => router.prefetch(`/${accountIndex}/${file.id}`)}
+                  onMouseEnter={() => router.prefetch(`/${accountIndex}/file/${file.id}`)}
                   className="group relative flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-blue-400 hover:shadow-md transition-all duration-150 cursor-pointer overflow-hidden"
                 >
                   <div className="flex items-start justify-between">

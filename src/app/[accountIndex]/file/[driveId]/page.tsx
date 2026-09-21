@@ -1,36 +1,29 @@
 import React from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getValidAccessTokenForAccount } from "@/lib/server-account-store";
 import { getDriveItemById } from "@/lib/google-drive";
-import { DriveExplorer } from "@/components/drive/drive-explorer";
+import { FileDetailView } from "@/components/drive/file-detail-view";
 import { Button } from "@/components/ui/button";
 import { FileQuestion, ArrowLeft } from "lucide-react";
 
-interface DriveItemPageProps {
+interface FilePageProps {
   params: Promise<{ accountIndex: string; driveId: string }>;
 }
 
-export default async function DriveItemPage({ params }: DriveItemPageProps) {
+export default async function FilePage({ params }: FilePageProps) {
   const resolvedParams = await params;
   const accountIndex = parseInt(resolvedParams.accountIndex, 10) || 0;
   const driveId = decodeURIComponent(resolvedParams.driveId);
 
   const accessToken = await getValidAccessTokenForAccount(accountIndex);
-
-  // Look up item by Google Drive ID
   const item = await getDriveItemById(driveId, accessToken, accountIndex);
-
-  const isFolder =
-    item?.mimeType === "application/vnd.google-apps.folder" ||
-    driveId.startsWith("folder-");
 
   if (!item) {
     return (
       <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-xs">
         <FileQuestion className="mx-auto h-12 w-12 text-slate-300" />
         <h2 className="mt-3 text-base font-bold text-slate-800">
-          Berkas atau Folder Tidak Ditemukan
+          Berkas Tidak Ditemukan
         </h2>
         <p className="mt-1 text-xs text-slate-400 max-w-md mx-auto">
           ID berkas &quot;{driveId}&quot; tidak dapat ditemukan pada akun Google ini.
@@ -46,16 +39,5 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
     );
   }
 
-  if (isFolder) {
-    return (
-      <DriveExplorer
-        accountIndex={accountIndex}
-        initialFolderId={driveId}
-        initialFolderName={item.name}
-      />
-    );
-  }
-
-  // Non-folder items smoothly redirect to dedicated file route
-  redirect(`/${accountIndex}/file/${encodeURIComponent(driveId)}`);
+  return <FileDetailView file={item} accountIndex={accountIndex} />;
 }
