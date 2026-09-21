@@ -137,7 +137,7 @@ export async function getDriveFiles(
 
     // Pruned fields to minimize JSON payload size and transfer time
     const fields =
-      "nextPageToken, files(id, name, mimeType, size, modifiedTime, createdTime, thumbnailLink, shared, parents)";
+      "nextPageToken, files(id, name, mimeType, size, modifiedTime, createdTime, webViewLink, thumbnailLink, shared, parents)";
     const url = new URL("https://www.googleapis.com/drive/v3/files");
     url.searchParams.set("q", parentQuery);
     url.searchParams.set("fields", fields);
@@ -313,7 +313,9 @@ export async function getDriveItemById(
           size: file.size ? parseInt(file.size, 10) : undefined,
           modifiedTime: file.modifiedTime || new Date().toISOString(),
           createdTime: file.createdTime,
-          webViewLink: file.webViewLink,
+          webViewLink:
+            file.webViewLink ||
+            `https://drive.google.com/file/d/${file.id}/view`,
           webContentLink: file.webContentLink || `https://drive.google.com/uc?export=download&id=${file.id}`,
           iconLink: file.iconLink,
           thumbnailLink: file.thumbnailLink,
@@ -416,7 +418,7 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
     while (currentToken && pageCount < 5) {
       pageCount++;
       const fields =
-        "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,modifiedTime,createdTime,thumbnailLink,shared,parents,trashed))";
+        "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,modifiedTime,createdTime,webViewLink,thumbnailLink,shared,parents,trashed))";
       const changeUrl: string = `https://www.googleapis.com/drive/v3/changes?pageToken=${encodeURIComponent(
         currentToken
       )}&fields=${encodeURIComponent(
@@ -478,6 +480,11 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
             size: ch.file.size ? parseInt(ch.file.size, 10) : undefined,
             modifiedTime: ch.file.modifiedTime || new Date().toISOString(),
             createdTime: ch.file.createdTime,
+            webViewLink:
+              ch.file.webViewLink ||
+              (ch.file.id
+                ? `https://drive.google.com/file/d/${ch.file.id}/view`
+                : undefined),
             thumbnailLink: ch.file.thumbnailLink,
             shared: ch.file.shared || false,
             parents: normalizedParents,

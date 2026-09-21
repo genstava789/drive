@@ -78,6 +78,8 @@ export function FileDetailView({
 
 
   const downloadUrl = getDownloadUrl(file.id, file.name);
+  const openDriveUrl =
+    file.webViewLink || (file.id ? `https://drive.google.com/file/d/${file.id}/view` : undefined);
 
   const imageSrc = file.thumbnailLink || file.webViewLink || "";
 
@@ -285,9 +287,9 @@ export function FileDetailView({
             </a>
 
             {/* Open in Google Drive Button */}
-            {file.webViewLink && (
+            {openDriveUrl && (
               <a
-                href={file.webViewLink}
+                href={openDriveUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 sm:flex-initial inline-flex"
@@ -299,7 +301,7 @@ export function FileDetailView({
                   title="Buka di Google Drive"
                 >
                   <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
-                  <span className="text-[11px]">Open Drive</span>
+                  <span className="text-[11px] font-medium">Open Drive</span>
                 </Button>
               </a>
             )}

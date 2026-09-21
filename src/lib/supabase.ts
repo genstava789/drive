@@ -185,7 +185,9 @@ function mapRowToDriveFile(row: any): DriveFile {
     size: row.size !== null && row.size !== undefined ? Number(row.size) : undefined,
     modifiedTime: row.modified_time || new Date().toISOString(),
     createdTime: row.created_time || undefined,
-    webViewLink: row.web_view_link || undefined,
+    webViewLink:
+      row.web_view_link ||
+      (row.id ? `https://drive.google.com/file/d/${row.id}/view` : undefined),
     webContentLink:
       row.web_content_link ||
       `https://drive.google.com/uc?export=download&id=${row.id}`,
@@ -227,7 +229,9 @@ function mapDriveFileToRow(
     parent_id: parentId,
     parents: normalizedParents,
     thumbnail_link: f.thumbnailLink || null,
-    web_view_link: f.webViewLink || null,
+    web_view_link:
+      f.webViewLink ||
+      (f.id ? `https://drive.google.com/file/d/${f.id}/view` : null),
     web_content_link: f.webContentLink || null,
     icon_link: f.iconLink || null,
     shared: Boolean(f.shared),
