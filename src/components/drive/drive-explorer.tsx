@@ -130,13 +130,18 @@ export function DriveExplorer({
   const filteredFiles = useMemo(() => {
     if (selectedCategory === "all") return files;
     return files.filter((file) => {
-      const category = getFileCategory(file.mimeType);
+      if (selectedCategory === "file") {
+        return file.mimeType !== "application/vnd.google-apps.folder";
+      }
+      const category = getFileCategory(file.mimeType, file.name);
       if (selectedCategory === "media") {
-        return category === "image" || category === "video" || category === "audio";
+        return category === "video" || category === "audio";
       }
       return category === selectedCategory;
     });
   }, [files, selectedCategory]);
+
+  const isFiltered = selectedCategory !== "all" || Boolean(searchQuery.trim());
 
   return (
     <div className="w-full">
@@ -178,6 +183,7 @@ export function DriveExplorer({
             data={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
             searchQuery={searchQuery}
+            isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
           />
         ) : (
@@ -185,6 +191,8 @@ export function DriveExplorer({
           <DriveGrid
             files={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
+            searchQuery={searchQuery}
+            isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
           />
         )}

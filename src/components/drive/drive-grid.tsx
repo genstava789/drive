@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DriveFile } from "@/types/drive";
 import { FileTypeIcon } from "./file-type-icon";
 import { formatBytes, getFileCategory } from "@/lib/utils";
-import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn } from "lucide-react";
+import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn, FileQuestion } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,12 +19,16 @@ import { restoreAllAccounts } from "@/lib/account-store";
 interface DriveGridProps {
   files: DriveFile[];
   accountIndex?: number;
+  searchQuery?: string;
+  isFiltered?: boolean;
   hasNoAccount?: boolean;
 }
 
 export function DriveGrid({
   files,
   accountIndex = 0,
+  searchQuery = "",
+  isFiltered = false,
   hasNoAccount = false,
 }: DriveGridProps) {
   const router = useRouter();
@@ -32,6 +36,16 @@ export function DriveGrid({
   const handleItemClick = (file: DriveFile) => {
     router.push(`/${accountIndex}/${file.id}`);
   };
+
+  const searchedFiles = React.useMemo(() => {
+    if (!searchQuery || !searchQuery.trim()) return files;
+    const query = searchQuery.trim().toLowerCase();
+    return files.filter((file) => {
+      const name = String(file.name || "").toLowerCase();
+      const mime = String(file.mimeType || "").toLowerCase();
+      return name.includes(query) || mime.includes(query);
+    });
+  }, [files, searchQuery]);
 
   if (hasNoAccount) {
     return (
@@ -84,7 +98,21 @@ export function DriveGrid({
     );
   }
 
-  if (files.length === 0) {
+  if (searchedFiles.length === 0) {
+    if (isFiltered || Boolean(searchQuery.trim())) {
+      return (
+        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+          <FileQuestion className="mx-auto h-12 w-12 text-slate-300" />
+          <h4 className="mt-3 text-sm font-semibold text-slate-700">
+            Tidak ada berkas yang cocok
+          </h4>
+          <p className="mt-1 text-xs text-slate-400">
+            Coba ubah kata kunci atau bersihkan filter.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">
         <Folder className="mx-auto h-12 w-12 text-slate-300" />
@@ -98,10 +126,10 @@ export function DriveGrid({
     );
   }
 
-  const folders = files.filter(
+  const folders = searchedFiles.filter(
     (f) => f.mimeType === "application/vnd.google-apps.folder"
   );
-  const regularFiles = files.filter(
+  const regularFiles = searchedFiles.filter(
     (f) => f.mimeType !== "application/vnd.google-apps.folder"
   );
 
@@ -123,7 +151,7 @@ export function DriveGrid({
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="shrink-0 transition-transform group-hover:scale-110">
-                    <FileTypeIcon mimeType={folder.mimeType} size={20} />
+                    <FileTypeIcon mimeType={folder.mimeType} fileName={folder.name} size={20} />
                   </div>
                   <span className="truncate text-xs font-semibold text-slate-800 group-hover:text-blue-600">
                     {folder.name}
@@ -143,7 +171,7 @@ export function DriveGrid({
           </h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {regularFiles.map((file) => {
-              const category = getFileCategory(file.mimeType);
+              const category = getFileCategory(file.mimeType, file.name);
 
               return (
                 <div
@@ -154,7 +182,7 @@ export function DriveGrid({
                 >
                   <div className="flex items-start justify-between">
                     <div className="shrink-0 transition-transform group-hover:scale-105">
-                      <FileTypeIcon mimeType={file.mimeType} size={20} />
+                      <FileTypeIcon mimeType={file.mimeType} fileName={file.name} size={20} />
                     </div>
                     <div
                       onClick={(e) => e.stopPropagation()}

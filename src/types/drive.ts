@@ -56,6 +56,7 @@ export interface DriveResponse {
 export type FileCategoryFilter =
   | "all"
   | "folder"
+  | "file"
   | "document"
   | "spreadsheet"
   | "presentation"

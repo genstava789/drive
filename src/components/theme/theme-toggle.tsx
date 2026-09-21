@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -32,8 +32,7 @@ export function ThemeToggle() {
     );
   }
 
-  const isLight = theme === "light" || (theme === "system" && resolvedTheme === "light");
-  const isMidnight = theme === "midnight" || (theme === "system" && resolvedTheme !== "light");
+  const isMidnight = theme === "midnight";
 
   return (
     <DropdownMenu>
@@ -44,8 +43,8 @@ export function ThemeToggle() {
             theme === "midnight"
               ? "Midnight"
               : theme === "light"
-              ? "White Smoke"
-              : "Sistem"
+              ? "White"
+              : "Sistem (White)"
           })`}
           aria-label="Theme Switcher"
         >
@@ -65,7 +64,7 @@ export function ThemeToggle() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="my-1" />
 
-        {/* White Smoke (Default Light) */}
+        {/* White (Default Light) */}
         <DropdownMenuItem
           onClick={() => setTheme("light")}
           className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
@@ -76,7 +75,7 @@ export function ThemeToggle() {
         >
           <div className="flex items-center gap-2">
             <Sun className="h-3.5 w-3.5 text-amber-500" />
-            <span>White Smoke</span>
+            <span>White</span>
           </div>
           {theme === "light" && <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />}
         </DropdownMenuItem>
@@ -99,7 +98,7 @@ export function ThemeToggle() {
 
         <DropdownMenuSeparator className="my-1" />
 
-        {/* System Auto */}
+        {/* System Auto (White) */}
         <DropdownMenuItem
           onClick={() => setTheme("system")}
           className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
@@ -110,7 +109,7 @@ export function ThemeToggle() {
         >
           <div className="flex items-center gap-2">
             <Laptop className="h-3.5 w-3.5 text-slate-400" />
-            <span>Sistem Otomatis</span>
+            <span>Sistem Otomatis (White)</span>
           </div>
           {theme === "system" && <Check className="h-3.5 w-3.5 text-slate-900 shrink-0" />}
         </DropdownMenuItem>

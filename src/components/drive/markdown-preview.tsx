@@ -33,7 +33,7 @@ export function MarkdownPreview({ file }: MarkdownPreviewProps) {
   const sampleMarkdown = `# LeviDrive - Google Drive Explorer Next.js 15+
 
 > [!NOTE]
-> Aplikasi penjelajah berkas Google Drive modern dengan tema **White Smoke**, sorting headless TanStack Table v8, integrasi multi-akun, dan pratinjau berkas interaktif.
+> Aplikasi penjelajah berkas Google Drive modern dengan tema **White**, sorting headless TanStack Table v8, integrasi multi-akun, dan pratinjau berkas interaktif.
 
 ---
 
@@ -53,7 +53,7 @@ export function MarkdownPreview({ file }: MarkdownPreviewProps) {
 | Komponen | Versi / Spesifikasi | Keterangan |
 | :--- | :--- | :--- |
 | **Framework** | Next.js 16.3+ (App Router) | Server Components & Edge Rendering |
-| **Styling** | Tailwind CSS v4 | Tema Elegan White Smoke |
+| **Styling** | Tailwind CSS v4 | Tema Elegan White |
 | **Table Engine** | TanStack Table v8 | Sorting, Filtering, Pagination Headless |
 | **Authentication**| NextAuth v5 (Auth.js) | OAuth 2.0 Google Drive API v3 |
 | **Font Family** | Outfit & Plus Jakarta Sans | Google Fonts Typography |

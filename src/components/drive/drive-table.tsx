@@ -53,6 +53,7 @@ interface DriveTableProps {
   data: DriveFile[];
   accountIndex?: number;
   searchQuery: string;
+  isFiltered?: boolean;
   hasNoAccount?: boolean;
 }
 
@@ -60,6 +61,7 @@ export function DriveTable({
   data,
   accountIndex = 0,
   searchQuery,
+  isFiltered = false,
   hasNoAccount = false,
 }: DriveTableProps) {
   const router = useRouter();
@@ -126,7 +128,7 @@ export function DriveTable({
               onClick={() => handleRowClick(file)}
             >
               <div className="shrink-0 transition-transform group-hover:scale-105">
-                <FileTypeIcon mimeType={file.mimeType} size={18} />
+                <FileTypeIcon mimeType={file.mimeType} fileName={file.name} size={18} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors truncate text-xs sm:text-sm">
@@ -179,7 +181,7 @@ export function DriveTable({
           );
         },
         cell: ({ row }) => {
-          const category = getFileCategory(row.original.mimeType);
+          const category = getFileCategory(row.original.mimeType, row.original.name);
           const badgeMap: Record<
             string,
             {
@@ -221,8 +223,8 @@ export function DriveTable({
           );
         },
         sortingFn: (rowA, rowB) => {
-          const catA = getFileCategory(rowA.original.mimeType);
-          const catB = getFileCategory(rowB.original.mimeType);
+          const catA = getFileCategory(rowA.original.mimeType, rowA.original.name);
+          const catB = getFileCategory(rowB.original.mimeType, rowB.original.name);
           return catA.localeCompare(catB);
         },
       },
@@ -533,7 +535,7 @@ export function DriveTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : (
+            ) : isFiltered || Boolean(searchQuery?.trim()) ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
@@ -546,6 +548,23 @@ export function DriveTable({
                     </p>
                     <p className="text-[11px] text-slate-400">
                       Coba ubah kata kunci atau bersihkan filter.
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-32 text-center text-slate-500"
+                >
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <Folder className="h-7 w-7 text-slate-300" />
+                    <p className="font-medium text-xs text-slate-700">
+                      Folder ini kosong
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Tidak ada berkas atau direktori dalam folder ini.
                     </p>
                   </div>
                 </TableCell>

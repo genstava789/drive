@@ -36,7 +36,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const category = getFileCategory(file.mimeType);
+  const category = getFileCategory(file.mimeType, file.name);
   const isImage =
     category === "image" ||
     file.mimeType.startsWith("image/") ||

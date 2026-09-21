@@ -15,16 +15,18 @@ import { getFileCategory } from "@/lib/utils";
 
 interface FileTypeIconProps {
   mimeType: string;
+  fileName?: string;
   className?: string;
   size?: number;
 }
 
 export function FileTypeIcon({
   mimeType,
+  fileName,
   className = "h-5 w-5",
   size = 20,
 }: FileTypeIconProps) {
-  const category = getFileCategory(mimeType);
+  const category = getFileCategory(mimeType, fileName);
 
   switch (category) {
     case "folder":

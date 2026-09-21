@@ -21,7 +21,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "LeviDrive • Google Drive Explorer",
   description:
-    "Jelajahi, urutkan, dan kelola berkas & folder Google Drive secara cepat dan elegan dengan tema White Smoke dan TanStack Table.",
+    "Jelajahi, urutkan, dan kelola berkas & folder Google Drive secara cepat dan elegan dengan tema White dan TanStack Table.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -46,7 +46,7 @@ export default function RootLayout({
           themes={["light", "midnight"]}
           value={{
             light: "light",
-            dark: "midnight",
+            dark: "light",
             midnight: "midnight",
           }}
         >

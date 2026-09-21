@@ -9,11 +9,14 @@ import {
   LayoutGrid,
   RefreshCw,
   Folder,
+  File,
   FileText,
   FileSpreadsheet,
   Image as ImageIcon,
   Presentation,
   Filter,
+  FileArchive,
+  Film,
 } from "lucide-react";
 import { FileCategoryFilter } from "@/types/drive";
 
@@ -36,12 +39,14 @@ const CATEGORIES: {
 }[] = [
   { id: "all", label: "Semua" },
   { id: "folder", label: "Folder", icon: Folder },
+  { id: "file", label: "File Only", icon: File },
   { id: "document", label: "Dokumen", icon: FileText },
   { id: "spreadsheet", label: "Spreadsheet", icon: FileSpreadsheet },
   { id: "presentation", label: "Slide", icon: Presentation },
   { id: "image", label: "Gambar", icon: ImageIcon },
-  { id: "pdf", label: "PDF" },
-  { id: "archive", label: "ZIP" },
+  { id: "media", label: "Video", icon: Film },
+  { id: "pdf", label: "PDF", icon: FileText },
+  { id: "archive", label: "ZIP", icon: FileArchive },
 ];
 
 export function DriveToolbar({

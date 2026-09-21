@@ -36,54 +36,99 @@ export function formatDate(dateString?: string): string {
   }
 }
 
-export function getFileCategory(mimeType: string): string {
-  if (!mimeType) return "other";
-  if (mimeType === "application/vnd.google-apps.folder") return "folder";
+export function getFileCategory(mimeType: string, fileName?: string): string {
+  const mime = (mimeType || "").toLowerCase();
+  const ext = fileName ? fileName.split(".").pop()?.toLowerCase() || "" : "";
+
+  if (mime === "application/vnd.google-apps.folder") return "folder";
+
+  // Check spreadsheet first (before document, because OpenXML .xlsx has 'officedocument' in its MIME type)
   if (
-    mimeType.includes("document") ||
-    mimeType.includes("word") ||
-    mimeType === "application/vnd.google-apps.document" ||
-    mimeType === "text/plain" ||
-    mimeType === "text/markdown"
-  ) {
-    return "document";
-  }
-  if (
-    mimeType.includes("sheet") ||
-    mimeType.includes("excel") ||
-    mimeType === "application/vnd.google-apps.spreadsheet" ||
-    mimeType === "text/csv"
+    mime.includes("sheet") ||
+    mime.includes("excel") ||
+    mime === "application/vnd.google-apps.spreadsheet" ||
+    mime === "text/csv" ||
+    mime.includes("spreadsheet") ||
+    ["xlsx", "xls", "csv", "tsv", "ods"].includes(ext)
   ) {
     return "spreadsheet";
   }
+
+  // Check presentation second (before document, because OpenXML .pptx has 'officedocument' in its MIME type)
   if (
-    mimeType.includes("presentation") ||
-    mimeType.includes("powerpoint") ||
-    mimeType === "application/vnd.google-apps.presentation"
+    mime.includes("presentation") ||
+    mime.includes("powerpoint") ||
+    mime === "application/vnd.google-apps.presentation" ||
+    ["pptx", "ppt", "odp", "key"].includes(ext)
   ) {
     return "presentation";
   }
-  if (mimeType.includes("pdf")) return "pdf";
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  if (mimeType.startsWith("audio/")) return "audio";
+
+  // Check document
   if (
-    mimeType.includes("zip") ||
-    mimeType.includes("tar") ||
-    mimeType.includes("rar") ||
-    mimeType.includes("7z") ||
-    mimeType.includes("compressed")
+    mime.includes("word") ||
+    mime.includes("wordprocessingml") ||
+    mime === "application/vnd.google-apps.document" ||
+    mime === "text/plain" ||
+    mime === "text/markdown" ||
+    mime.includes("rtf") ||
+    mime.includes("document") ||
+    ["doc", "docx", "txt", "md", "rtf", "odt"].includes(ext)
+  ) {
+    return "document";
+  }
+
+  // PDF
+  if (mime.includes("pdf") || ext === "pdf") return "pdf";
+
+  // Images
+  if (
+    mime.startsWith("image/") ||
+    ["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "heic"].includes(ext)
+  ) {
+    return "image";
+  }
+
+  // Videos
+  if (
+    mime.startsWith("video/") ||
+    ["mp4", "mkv", "mov", "avi", "webm", "wmv", "flv", "m4v"].includes(ext)
+  ) {
+    return "video";
+  }
+
+  // Audio
+  if (
+    mime.startsWith("audio/") ||
+    ["mp3", "wav", "ogg", "flac", "m4a", "aac", "wma"].includes(ext)
+  ) {
+    return "audio";
+  }
+
+  // Archives / Compressed
+  if (
+    mime.includes("zip") ||
+    mime.includes("tar") ||
+    mime.includes("rar") ||
+    mime.includes("7z") ||
+    mime.includes("compressed") ||
+    mime.includes("gzip") ||
+    ["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz"].includes(ext)
   ) {
     return "archive";
   }
+
+  // Code / Source files
   if (
-    mimeType.includes("json") ||
-    mimeType.includes("javascript") ||
-    mimeType.includes("typescript") ||
-    mimeType.includes("html") ||
-    mimeType.includes("css")
+    mime.includes("json") ||
+    mime.includes("javascript") ||
+    mime.includes("typescript") ||
+    mime.includes("html") ||
+    mime.includes("css") ||
+    ["js", "ts", "jsx", "tsx", "json", "html", "css", "py", "sh", "sql", "xml", "yaml", "yml"].includes(ext)
   ) {
     return "code";
   }
+
   return "file";
 }
