@@ -76,6 +76,23 @@ export function DriveTable({
     router.push(`/${accountIndex}/${file.id}`);
   };
 
+  const handleSort = (columnId: string) => {
+    setSorting((prev) => {
+      const current = prev.find((s) => s.id === columnId);
+      if (columnId === "name") {
+        return [{ id: "name", desc: current ? !current.desc : false }];
+      }
+      if (!current) {
+        return [{ id: columnId, desc: false }];
+      } else if (!current.desc) {
+        return [{ id: columnId, desc: true }];
+      } else {
+        // 3rd click: Revert back to default order!
+        return [{ id: "name", desc: false }];
+      }
+    });
+  };
+
   const columns = useMemo<ColumnDef<DriveFile>[]>(
     () => [
       {
@@ -85,7 +102,8 @@ export function DriveTable({
           return (
             <button
               className="flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() => handleSort("name")}
+              title="Urutkan berdasarkan Nama"
             >
               <span>Nama</span>
               {isSorted === "asc" ? (
@@ -146,7 +164,8 @@ export function DriveTable({
           return (
             <button
               className="flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() => handleSort("category")}
+              title="Urutkan berdasarkan Tipe (Klik ke-3 untuk kembali ke semula)"
             >
               <span>Tipe</span>
               {isSorted === "asc" ? (
@@ -214,7 +233,8 @@ export function DriveTable({
           return (
             <button
               className="hidden sm:flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() => handleSort("size")}
+              title="Urutkan berdasarkan Ukuran (Klik ke-3 untuk kembali ke semula)"
             >
               <span>Ukuran</span>
               {isSorted === "asc" ? (
@@ -249,7 +269,8 @@ export function DriveTable({
           return (
             <button
               className="hidden md:flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() => handleSort("modifiedTime")}
+              title="Urutkan berdasarkan Waktu Diubah (Klik ke-3 untuk kembali ke semula)"
             >
               <span>Diubah</span>
               {isSorted === "asc" ? (
@@ -360,7 +381,7 @@ export function DriveTable({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountIndex]
+    [accountIndex, sorting]
   );
 
   const table = useReactTable({

@@ -5,10 +5,35 @@ import path from "path";
 import { GoogleAccount } from "@/types/drive";
 
 /**
- * Membaca kredensial Google OAuth dari credentials.json di root project,
- * dengan fallback ke environment variables (process.env.GOOGLE_CLIENT_ID).
+ * Membaca kredensial Google OAuth:
+ * Prioritas 1 (Vercel / Prod): Environment variable GOOGLE_CLIENT_ID / AUTH_GOOGLE_ID
+ * Prioritas 2 (Local Dev): credentials.json di root project
  */
 function getGoogleCredentials() {
+  const envClientId = (
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.AUTH_GOOGLE_ID ||
+    ""
+  )
+    .trim()
+    .replace(/^["']|["']$/g, "");
+
+  const envClientSecret = (
+    process.env.GOOGLE_CLIENT_SECRET ||
+    process.env.AUTH_GOOGLE_SECRET ||
+    ""
+  )
+    .trim()
+    .replace(/^["']|["']$/g, "");
+
+  if (envClientId && envClientSecret) {
+    return {
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      source: "process.env",
+    };
+  }
+
   try {
     const credPath = path.join(process.cwd(), "credentials.json");
     if (fs.existsSync(credPath)) {
@@ -18,8 +43,8 @@ function getGoogleCredentials() {
 
       if (creds?.client_id && creds?.client_secret) {
         return {
-          clientId: creds.client_id as string,
-          clientSecret: creds.client_secret as string,
+          clientId: String(creds.client_id).trim(),
+          clientSecret: String(creds.client_secret).trim(),
           source: "credentials.json",
         };
       }
@@ -32,8 +57,8 @@ function getGoogleCredentials() {
   }
 
   return {
-    clientId: process.env.GOOGLE_CLIENT_ID || "",
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    clientId: envClientId,
+    clientSecret: envClientSecret,
     source: "process.env",
   };
 }
@@ -42,6 +67,10 @@ const googleCreds = getGoogleCredentials();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  secret:
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "levidrive-production-secure-auth-secret-key-2026-xyz",
   providers: [
     Google({
       clientId: googleCreds.clientId,
@@ -110,8 +139,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
-  secret:
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "default-white-smoke-google-drive-explorer-secret-key-12345",
 });
