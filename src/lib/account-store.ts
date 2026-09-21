@@ -83,7 +83,17 @@ export function filterAvailableAccounts(
   rawAccounts: GoogleAccount[]
 ): GoogleAccount[] {
   const removed = getStoredRemovedAccountIds();
-  return rawAccounts.filter((a) => !removed.includes(a.id || a.email));
+  return rawAccounts.filter(
+    (a) =>
+      a &&
+      typeof a.email === "string" &&
+      a.email.trim() !== "" &&
+      a.email.includes("@") &&
+      a.email !== "admin@levidrive.com" &&
+      a.email !== "levi.developer@gmail.com" &&
+      a.email !== "cloudvault.demo@gmail.com" &&
+      !removed.includes(a.id || a.email)
+  );
 }
 
 export function getActiveAccounts(
@@ -94,10 +104,14 @@ export function getActiveAccounts(
 
   // 1. Server accounts is the primary authoritative source for order (Account 0, Account 1, ...)
   if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
-    rawAccounts = [...serverAccounts];
+    rawAccounts = serverAccounts.filter(
+      (a) => a && a.email && a.email.includes("@")
+    );
   } else if (session?.accounts && session.accounts.length > 0) {
-    rawAccounts = [...session.accounts];
-  } else if (session?.user) {
+    rawAccounts = session.accounts.filter(
+      (a: any) => a && a.email && a.email.includes("@")
+    );
+  } else if (session?.user && session.user.email) {
     rawAccounts = [
       {
         id: session.user.id || "primary",
@@ -113,20 +127,17 @@ export function getActiveAccounts(
   // 2. If session has any account not yet in serverAccounts, append to the end (never changing index 0)
   if (session?.accounts && Array.isArray(session.accounts)) {
     for (const acc of session.accounts) {
-      if (acc && !rawAccounts.some((a) => a.email === acc.email || a.id === acc.id)) {
+      if (
+        acc &&
+        acc.email &&
+        acc.email.includes("@") &&
+        !rawAccounts.some((a) => a.email === acc.email || (acc.id && a.id === acc.id))
+      ) {
         rawAccounts.push(acc);
       }
     }
   }
 
-  // Filter out any removed accounts and any legacy demo/placeholder emails
-  const filtered = filterAvailableAccounts(rawAccounts).filter(
-    (a) =>
-      a.email !== "admin@levidrive.com" &&
-      a.email !== "levi.developer@gmail.com" &&
-      a.email !== "cloudvault.demo@gmail.com"
-  );
-
-  return filtered;
+  return filterAvailableAccounts(rawAccounts);
 }
 

@@ -314,9 +314,17 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
     return [];
   }
 
-  let accounts = [...state.accounts];
-  // Clean out any legacy placeholder emails
-  accounts = accounts.filter((a) => a.email !== "admin@levidrive.com");
+  // Filter out any dummy, empty, or placeholder accounts
+  let accounts = [...state.accounts].filter(
+    (a) =>
+      a &&
+      typeof a.email === "string" &&
+      a.email.trim() !== "" &&
+      a.email.includes("@") &&
+      a.email !== "admin@levidrive.com" &&
+      a.email !== "levi.developer@gmail.com" &&
+      a.email !== "cloudvault.demo@gmail.com"
+  );
 
   // Automatically resolve real Google profile from Google Drive API if needed
   let stateModified = false;
@@ -372,31 +380,41 @@ export async function clearAllServerAccounts(): Promise<void> {
  */
 export async function saveServerAccount(
   accountData: Partial<ServerAccount> & { id: string }
-): Promise<ServerAccount> {
+): Promise<ServerAccount | null> {
   const state = await getServerStoreState();
   // An active sign-in or save resets the loggedOut state
   state.loggedOut = false;
   state.loggedOutAt = 0;
 
   const accounts = [...state.accounts];
-  const email = accountData.email || "";
+  const email = (accountData.email || "").trim();
   const existingIndex = accounts.findIndex(
-    (a) => a.id === accountData.id || (email && a.email === email)
+    (a) =>
+      (accountData.id && a.id === accountData.id) ||
+      (email && a.email && a.email.toLowerCase() === email.toLowerCase())
   );
 
+  // STRICT PROTECTION: Never create a new account without a valid email address!
+  if (existingIndex < 0 && (!email || !email.includes("@"))) {
+    console.warn(
+      "[ServerStore] Ignored attempt to create account without a valid email:",
+      accountData.id
+    );
+    return null;
+  }
+
+  const existingAccount = existingIndex >= 0 ? accounts[existingIndex] : null;
+
   const updatedAccount: ServerAccount = {
-    id: accountData.id,
-    name: accountData.name || "Akun Google",
-    email,
-    image: accountData.image,
-    accessToken: accountData.accessToken,
-    refreshToken:
-      accountData.refreshToken ||
-      (existingIndex >= 0 ? accounts[existingIndex].refreshToken : undefined),
-    expiresAt: accountData.expiresAt,
+    id: accountData.id || existingAccount?.id || `acc-${Date.now()}`,
+    name: accountData.name || existingAccount?.name || "Akun Google",
+    email: email || existingAccount?.email || "",
+    image: accountData.image || existingAccount?.image,
+    accessToken: accountData.accessToken || existingAccount?.accessToken,
+    refreshToken: accountData.refreshToken || existingAccount?.refreshToken,
+    expiresAt: accountData.expiresAt || existingAccount?.expiresAt,
     updatedAt: Date.now(),
-    isPrimaryEnv:
-      existingIndex >= 0 ? accounts[existingIndex].isPrimaryEnv : false,
+    isPrimaryEnv: existingAccount?.isPrimaryEnv || false,
   };
 
   if (existingIndex >= 0) {
@@ -408,7 +426,8 @@ export async function saveServerAccount(
     accounts.push(updatedAccount);
   }
 
-  state.accounts = accounts;
+  // Ensure state only contains accounts with valid emails
+  state.accounts = accounts.filter((a) => a.email && a.email.includes("@"));
   await persistStoreState(state);
   return updatedAccount;
 }

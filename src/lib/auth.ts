@@ -184,9 +184,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.expiresAt = newExpiresAt;
 
           // Update server store with refreshed access token for this specific account
-          if (token.sub) {
+          const targetEmail = (token.email as string) || "";
+          if (targetEmail && targetEmail.includes("@")) {
             saveServerAccount({
-              id: token.sub,
+              id: (token.sub as string) || targetEmail,
+              email: targetEmail,
               accessToken: refreshed.accessToken,
               expiresAt: newExpiresAt,
             }).catch(() => {});
@@ -203,15 +205,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       const serverState = await getServerStoreState();
+      const validAccounts = (serverState.accounts || []).filter(
+        (a) => a && a.email && a.email.includes("@")
+      );
       const accountsList =
-        serverState.accounts && serverState.accounts.length > 0
-          ? serverState.accounts.map((a, idx) => ({
+        validAccounts.length > 0
+          ? validAccounts.map((a, idx) => ({
               id: a.id || `account-${idx}`,
               name: a.name || "Akun Google",
               email: a.email || "",
               image: a.image,
             }))
-          : (token?.accounts as GoogleAccount[]) || [];
+          : ((token?.accounts as GoogleAccount[]) || []).filter(
+              (a) => a && a.email && a.email.includes("@")
+            );
 
       if (!token || (!token.accessToken && accountsList.length === 0)) {
         return {

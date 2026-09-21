@@ -15,20 +15,29 @@ export async function GET() {
   try {
     const serverAccounts = await getServerAccounts();
 
-    // Map to client-safe representation without exposing sensitive tokens
-    const clientSafeAccounts = serverAccounts.map((acc, index) => ({
-      id: acc.id || `account-${index}`,
-      name: acc.name || "Akun Google",
-      email: acc.email || "",
-      image: acc.image || undefined,
-      hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
-      isPrimaryEnv: Boolean(acc.isPrimaryEnv),
-    }));
+    // Map to client-safe representation without exposing sensitive tokens, filtering dummy accounts
+    const clientSafeAccounts = serverAccounts
+      .filter((acc) => acc.email && acc.email.includes("@"))
+      .map((acc, index) => ({
+        id: acc.id || `account-${index}`,
+        name: acc.name || "Akun Google",
+        email: acc.email || "",
+        image: acc.image || undefined,
+        hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
+        isPrimaryEnv: Boolean(acc.isPrimaryEnv),
+      }));
 
-    return NextResponse.json({
-      accounts: clientSafeAccounts,
-      total: clientSafeAccounts.length,
-    });
+    return NextResponse.json(
+      {
+        accounts: clientSafeAccounts,
+        total: clientSafeAccounts.length,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("GET /api/auth/accounts error:", err);
     return NextResponse.json(
