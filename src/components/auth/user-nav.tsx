@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,107 +15,190 @@ import {
 import {
   LogOut,
   HelpCircle,
-  Sparkles,
-  CloudCheck,
+  Plus,
+  Check,
+  UserCheck,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
+import { MOCK_ACCOUNTS } from "@/lib/mock-data";
 
-export function UserNav() {
+interface UserNavProps {
+  accountIndex?: number;
+}
+
+export function UserNav({ accountIndex = 0 }: UserNavProps) {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // Collect accounts: either from active session.accounts or fallback to demo accounts
+  const isRealAuth = !!session?.user;
+  const accounts =
+    isRealAuth && session?.accounts && session.accounts.length > 0
+      ? session.accounts
+      : isRealAuth && session?.user
+      ? [
+          {
+            id: session.user.id || "primary",
+            name: session.user.name || "Akun Google",
+            email: session.user.email || "",
+            image: session.user.image || undefined,
+          },
+        ]
+      : MOCK_ACCOUNTS;
+
+  // Active account based on accountIndex URL parameter
+  const activeAccount = accounts[accountIndex] || accounts[0];
+
+  const handleSwitchAccount = (targetIndex: number) => {
+    router.push(`/${targetIndex}`);
+  };
+
+  const handleAddAccount = () => {
+    signIn("google", {
+      prompt: "select_account",
+      callbackUrl: `/${accounts.length}`,
+    });
+  };
 
   return (
     <>
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
+        {/* Setup guide trigger */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setGuideOpen(true)}
-          className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/80 hover:bg-slate-50"
+          className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/90 hover:bg-slate-50 h-8 px-2.5 rounded-lg shadow-2xs"
         >
-          <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
-          <span>Setup Google OAuth</span>
+          <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+          <span>Setup OAuth</span>
         </Button>
 
         {status === "loading" ? (
-          <div className="h-9 w-9 rounded-full bg-slate-200 animate-pulse" />
-        ) : session?.user ? (
+          <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
+        ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full p-1 transition hover:bg-slate-100 outline-none cursor-pointer">
-                {session.user.image ? (
+              <button className="flex items-center gap-1.5 rounded-full p-1 pl-1.5 pr-2.5 border border-slate-200 bg-white hover:bg-slate-50 shadow-2xs transition outline-none cursor-pointer">
+                {activeAccount?.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={session.user.image}
-                    alt={session.user.name || "User"}
-                    className="h-8 w-8 rounded-full border border-slate-200 object-cover"
+                    src={activeAccount.image}
+                    alt={activeAccount.name}
+                    className="h-6 w-6 rounded-full border border-slate-200 object-cover"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                    {session.user.name?.charAt(0) || "U"}
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
+                    {activeAccount?.name?.charAt(0) || "L"}
                   </div>
                 )}
-                <span className="hidden md:inline-block text-xs font-medium text-slate-700 max-w-[120px] truncate">
-                  {session.user.name}
+                <span className="text-xs font-semibold text-slate-800 max-w-[100px] truncate hidden sm:inline-block">
+                  {activeAccount?.name}
                 </span>
+                <span className="text-[10px] bg-slate-100 text-slate-500 font-mono px-1 rounded">
+                  /{accountIndex}
+                </span>
+                <ChevronDown className="h-3 w-3 text-slate-400" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-xs font-medium text-slate-900 truncate">
-                    {session.user.name}
-                  </p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {session.user.email}
-                  </p>
-                </div>
+
+            <DropdownMenuContent align="end" className="w-64 p-1.5 shadow-lg">
+              <DropdownMenuLabel className="px-2 py-1">
+                <p className="text-xs font-bold text-slate-800">Daftar Akun Google</p>
+                <p className="text-[11px] text-slate-400 font-normal">
+                  Pilih akun untuk beralih instan
+                </p>
               </DropdownMenuLabel>
+
               <DropdownMenuSeparator />
-              <div className="px-2 py-1.5 text-[11px] text-emerald-700 bg-emerald-50 rounded mx-1 flex items-center gap-1.5">
-                <CloudCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Terhubung ke Akun Google</span>
+
+              {/* Account list */}
+              <div className="space-y-1 py-1">
+                {accounts.map((acc, idx) => {
+                  const isActive = idx === accountIndex;
+                  return (
+                    <div
+                      key={acc.id || idx}
+                      onClick={() => handleSwitchAccount(idx)}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                        isActive
+                          ? "bg-blue-50/80 border border-blue-200/60"
+                          : "hover:bg-slate-100/70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {acc.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={acc.image}
+                            alt={acc.name}
+                            className="h-7 w-7 rounded-full border border-slate-200 object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white shrink-0">
+                            {acc.name.charAt(0)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 truncate">
+                            {acc.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {acc.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-white text-slate-500 border border-slate-200">
+                          /{idx}
+                        </span>
+                        {isActive && (
+                          <Check className="h-4 w-4 text-blue-600" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setGuideOpen(true)}>
-                <HelpCircle className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                <span>Petunjuk API OAuth</span>
-              </DropdownMenuItem>
+
+              {/* Action: Add Account */}
               <DropdownMenuItem
-                className="text-red-600 focus:bg-red-50 focus:text-red-700"
-                onClick={() => signOut()}
+                onClick={handleAddAccount}
+                className="gap-2 text-xs text-blue-600 font-medium cursor-pointer"
               >
-                <LogOut className="h-3.5 w-3.5 mr-2" />
-                <span>Keluar (Sign Out)</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>Tambah Akun Google Lain</span>
               </DropdownMenuItem>
+
+              {/* Guide modal link */}
+              <DropdownMenuItem
+                onClick={() => setGuideOpen(true)}
+                className="gap-2 text-xs text-slate-600 cursor-pointer"
+              >
+                <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+                <span>Panduan OAuth & credentials.json</span>
+              </DropdownMenuItem>
+
+              {isRealAuth && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/0" })}
+                    className="gap-2 text-xs text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Keluar (Sign Out)</span>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <Button
-            size="sm"
-            onClick={() => signIn("google")}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-xs text-xs flex items-center gap-2"
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
-              <path
-                fill="#EA4335"
-                d="M12 5c1.54 0 2.92.54 4.01 1.43l3.01-3.01C17.19 1.77 14.77 1 12 1 7.42 1 3.53 3.61 1.64 7.39l3.66 2.84C6.18 7.35 8.84 5 12 5z"
-              />
-              <path
-                fill="#4285F4"
-                d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.68 2.86c2.14-1.98 3.74-4.89 3.74-8.68z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.3 14.77c-.23-.68-.36-1.41-.36-2.17s.13-1.49.36-2.17L1.64 7.59C.6 9.68 0 12 0 14.4s.6 4.72 1.64 6.81l3.66-2.84z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.68-2.86c-1.07.72-2.45 1.16-4.25 1.16-3.16 0-5.82-2.35-6.7-5.23L1.64 16c1.89 3.78 5.78 6.4 10.36 6.4z"
-              />
-            </svg>
-            <span>Login Google</span>
-          </Button>
         )}
       </div>
 

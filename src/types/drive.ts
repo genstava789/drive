@@ -27,11 +27,24 @@ export interface BreadcrumbItem {
   name: string;
 }
 
+export interface GoogleAccount {
+  id: string;
+  name: string;
+  email: string;
+  image?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
 export interface DriveResponse {
   files: DriveFile[];
   nextPageToken?: string;
   currentFolderId: string;
+  currentFolderName?: string;
   isMockData?: boolean;
+  accountIndex?: number;
+  accounts?: GoogleAccount[];
   storageQuota?: {
     limit?: string;
     usage?: string;

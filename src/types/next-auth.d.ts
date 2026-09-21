@@ -1,8 +1,11 @@
 import { DefaultSession } from "next-auth";
+import { GoogleAccount } from "./drive";
 
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
+    accounts?: GoogleAccount[];
+    activeAccountIndex?: number;
     error?: string;
     user: {
       id?: string;
@@ -19,6 +22,8 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string;
+    accounts?: GoogleAccount[];
+    activeAccountIndex?: number;
     refreshToken?: string;
     expiresAt?: number;
     error?: string;

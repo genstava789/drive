@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ColumnDef,
   flexRender,
@@ -47,17 +48,17 @@ import {
 
 interface DriveTableProps {
   data: DriveFile[];
-  onOpenFolder: (folderId: string, folderName: string) => void;
-  onPreviewFile: (file: DriveFile) => void;
+  accountIndex?: number;
   searchQuery: string;
 }
 
 export function DriveTable({
   data,
-  onOpenFolder,
-  onPreviewFile,
+  accountIndex = 0,
   searchQuery,
 }: DriveTableProps) {
+  const router = useRouter();
+
   const [sorting, setSorting] = useState<SortingState>([
     { id: "name", desc: false },
   ]);
@@ -65,6 +66,10 @@ export function DriveTable({
     pageIndex: 0,
     pageSize: 10,
   });
+
+  const handleRowClick = (file: DriveFile) => {
+    router.push(`/${accountIndex}/${file.id}`);
+  };
 
   const columns = useMemo<ColumnDef<DriveFile>[]>(
     () => [
@@ -95,13 +100,7 @@ export function DriveTable({
           return (
             <div
               className="flex items-center gap-2.5 py-0.5 cursor-pointer group"
-              onClick={() => {
-                if (isFolder) {
-                  onOpenFolder(file.id, file.name);
-                } else {
-                  onPreviewFile(file);
-                }
-              }}
+              onClick={() => handleRowClick(file)}
             >
               <div className="shrink-0 transition-transform group-hover:scale-105">
                 <FileTypeIcon mimeType={file.mimeType} size={18} />
@@ -290,19 +289,19 @@ export function DriveTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
-                  {isFolder ? (
-                    <DropdownMenuItem
-                      onClick={() => onOpenFolder(file.id, file.name)}
-                    >
-                      <Folder className="h-3.5 w-3.5 mr-2 text-amber-500" />
-                      Buka Folder
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={() => onPreviewFile(file)}>
-                      <Eye className="h-3.5 w-3.5 mr-2 text-blue-500" />
-                      Pratinjau
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem onClick={() => handleRowClick(file)}>
+                    {isFolder ? (
+                      <>
+                        <Folder className="h-3.5 w-3.5 mr-2 text-amber-500" />
+                        Buka Folder
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                        Informasi Berkas
+                      </>
+                    )}
+                  </DropdownMenuItem>
                   {file.webViewLink && (
                     <DropdownMenuItem asChild>
                       <a
@@ -316,14 +315,14 @@ export function DriveTable({
                       </a>
                     </DropdownMenuItem>
                   )}
-                  {file.webViewLink && (
+                  {file.webContentLink && (
                     <DropdownMenuItem
                       onClick={() => {
-                        navigator.clipboard.writeText(file.webViewLink!);
+                        navigator.clipboard.writeText(file.webContentLink!);
                       }}
                     >
                       <Copy className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                      Salin Tautan
+                      Salin URL Unduh
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -333,7 +332,8 @@ export function DriveTable({
         },
       },
     ],
-    [onOpenFolder, onPreviewFile]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountIndex]
   );
 
   const table = useReactTable({

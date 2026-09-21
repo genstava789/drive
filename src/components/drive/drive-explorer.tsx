@@ -1,26 +1,36 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { BreadcrumbItem, DriveFile, DriveResponse, FileCategoryFilter } from "@/types/drive";
 import { BreadcrumbNav } from "./breadcrumb-nav";
 import { DriveToolbar } from "./drive-toolbar";
 import { DriveTable } from "./drive-table";
 import { DriveGrid } from "./drive-grid";
-import { FilePreviewModal } from "./file-preview-modal";
-import { OAuthSetupDialog } from "../auth/oauth-setup-dialog";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 
-export function DriveExplorer() {
+interface DriveExplorerProps {
+  accountIndex?: number;
+  initialFolderId?: string;
+  initialFolderName?: string;
+}
+
+export function DriveExplorer({
+  accountIndex = 0,
+  initialFolderId = "root",
+  initialFolderName,
+}: DriveExplorerProps) {
+  const router = useRouter();
   const { data: session } = useSession();
 
   const [files, setFiles] = useState<DriveFile[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string>(initialFolderId);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
     { id: "root", name: "My Drive" },
   ]);
-  const [currentFolderId, setCurrentFolderId] = useState<string>("root");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMockData, setIsMockData] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,24 +41,34 @@ export function DriveExplorer() {
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  // Modals
-  const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
-  const [previewOpen, setPreviewOpen] = useState<boolean>(false);
-  const [setupGuideOpen, setSetupGuideOpen] = useState<boolean>(false);
-
   // Fetch Drive items from API
   const fetchFiles = useCallback(
     async (folderId: string) => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/drive?folderId=${encodeURIComponent(folderId)}`);
+        const res = await fetch(
+          `/api/drive?folderId=${encodeURIComponent(
+            folderId
+          )}&accountIndex=${accountIndex}`
+        );
         if (!res.ok) {
           throw new Error(`Gagal memuat berkas: ${res.statusText}`);
         }
         const data: DriveResponse = await res.json();
         setFiles(data.files || []);
         setIsMockData(data.isMockData ?? true);
+
+        if (folderId !== "root") {
+          const folderName =
+            data.currentFolderName || initialFolderName || folderId;
+          setBreadcrumbs([
+            { id: "root", name: "My Drive" },
+            { id: folderId, name: folderName },
+          ]);
+        } else {
+          setBreadcrumbs([{ id: "root", name: "My Drive" }]);
+        }
       } catch (err: any) {
         console.error("Fetch error:", err);
         setError(err.message || "Terjadi kesalahan saat memuat berkas");
@@ -56,31 +76,20 @@ export function DriveExplorer() {
         setIsLoading(false);
       }
     },
-    []
+    [accountIndex, initialFolderName]
   );
 
   useEffect(() => {
     fetchFiles(currentFolderId);
   }, [currentFolderId, fetchFiles, session]);
 
-  // Navigate to child folder
-  const handleOpenFolder = (folderId: string, folderName: string) => {
-    setCurrentFolderId(folderId);
-    setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName }]);
-    setSearchQuery("");
-  };
-
-  // Navigate back using breadcrumb
+  // Navigate using breadcrumb
   const handleBreadcrumbNavigate = (folderId: string, index: number) => {
-    setCurrentFolderId(folderId);
-    setBreadcrumbs((prev) => prev.slice(0, index + 1));
-    setSearchQuery("");
-  };
-
-  // Preview file modal trigger
-  const handlePreviewFile = (file: DriveFile) => {
-    setSelectedFile(file);
-    setPreviewOpen(true);
+    if (folderId === "root") {
+      router.push(`/${accountIndex}`);
+    } else {
+      router.push(`/${accountIndex}/${folderId}`);
+    }
   };
 
   // Filter files based on category
@@ -136,35 +145,20 @@ export function DriveExplorer() {
             <Skeleton className="h-11 w-full rounded-lg" />
           </div>
         ) : viewMode === "table" ? (
-          /* Headless TanStack Table View */
+          /* Headless TanStack Table View with Route Navigation */
           <DriveTable
             data={filteredFiles}
-            onOpenFolder={handleOpenFolder}
-            onPreviewFile={handlePreviewFile}
+            accountIndex={accountIndex}
             searchQuery={searchQuery}
           />
         ) : (
-          /* Visual Grid View */
+          /* Visual Grid View with Route Navigation */
           <DriveGrid
             files={filteredFiles}
-            onOpenFolder={handleOpenFolder}
-            onPreviewFile={handlePreviewFile}
+            accountIndex={accountIndex}
           />
         )}
       </div>
-
-      {/* File Preview & Metadata Modal */}
-      <FilePreviewModal
-        file={selectedFile}
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-      />
-
-      {/* Setup Guide Modal */}
-      <OAuthSetupDialog
-        open={setupGuideOpen}
-        onOpenChange={setSetupGuideOpen}
-      />
     </div>
   );
 }
