@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { BreadcrumbItem, DriveFile, DriveResponse, FileCategoryFilter, GoogleAccount } from "@/types/drive";
@@ -10,7 +10,7 @@ import { DriveTable } from "./drive-table";
 import { DriveGrid } from "./drive-grid";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Sparkles } from "lucide-react";
 import { getActiveAccounts, fetchCachedServerAccounts } from "@/lib/account-store";
 import {
   getStoredBreadcrumbs,
@@ -77,6 +77,9 @@ export function DriveExplorer({
 
   // Filters & Views
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [isGlobalSearchActive, setIsGlobalSearchActive] = useState<boolean>(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
@@ -180,6 +183,56 @@ export function DriveExplorer({
     fetchFiles(currentFolderId);
   }, [currentFolderId, fetchFiles]);
 
+  // Global search across all folders and subfolders in Google Drive
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!trimmed) {
+      if (isGlobalSearchActive) {
+        setIsGlobalSearchActive(false);
+        setIsSearching(false);
+        const activeCacheKey = `${accountIndex}_${currentFolderId}`;
+        const cached = clientFolderCache.get(activeCacheKey);
+        if (cached) {
+          setFiles(cached.files);
+        } else {
+          fetchFiles(currentFolderId);
+        }
+      }
+      return;
+    }
+
+    // Debounce 350ms for smooth typing and minimal API calls
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      setIsGlobalSearchActive(true);
+      try {
+        const res = await fetch(
+          `/api/drive?folderId=${encodeURIComponent(
+            currentFolderId
+          )}&accountIndex=${accountIndex}&query=${encodeURIComponent(trimmed)}`
+        );
+        if (res.ok) {
+          const data: DriveResponse = await res.json();
+          setFiles(data.files || []);
+        }
+      } catch (err) {
+        console.error("Pencarian global error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, accountIndex, currentFolderId, fetchFiles, isGlobalSearchActive]);
+
   // Synchronize accounts state with server and browser session
   useEffect(() => {
     let isMounted = true;
@@ -282,9 +335,33 @@ export function DriveExplorer({
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onRefresh={() => fetchFiles(currentFolderId, true)}
-          isLoading={isLoading}
+          isLoading={isLoading || isSearching}
           isMockData={isMockData}
         />
+
+        {/* Global Search Results Indicator */}
+        {isGlobalSearchActive && Boolean(searchQuery.trim()) && (
+          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-50/80 border border-blue-100 text-xs text-blue-900 shadow-2xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+              <span className="truncate">
+                Pencarian di seluruh Google Drive untuk:{" "}
+                <strong className="font-semibold text-blue-950">&quot;{searchQuery.trim()}&quot;</strong>
+                {isSearching ? (
+                  <span className="text-blue-500 italic ml-1">mencari...</span>
+                ) : (
+                  <span className="text-blue-700 ml-1">({filteredFiles.length} item ditemukan)</span>
+                )}
+              </span>
+            </div>
+            <button
+              onClick={() => setSearchQuery("")}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 shrink-0 cursor-pointer hover:underline"
+            >
+              Reset
+            </button>
+          </div>
+        )}
 
         {/* Error Notice */}
         {error && (

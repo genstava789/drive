@@ -45,12 +45,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ item, accountIndex });
     }
 
+    const query = searchParams.get("query") || searchParams.get("q") || "";
+
     // Otherwise list folder items
     const driveData = await getDriveFiles(
       accessToken,
       folderId,
       accountIndex,
-      forceRefresh
+      forceRefresh,
+      query
     );
 
     return NextResponse.json(driveData);

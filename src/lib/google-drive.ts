@@ -30,9 +30,13 @@ export async function getDriveFiles(
   accessToken?: string | null,
   folderId = "root",
   accountIndex = 0,
-  forceMock = false
+  forceMock = false,
+  query?: string
 ): Promise<DriveResponse> {
-  const cacheKey = `${accountIndex}:${folderId}`;
+  const sanitizedQuery = (query || "").trim().replace(/['\\]/g, "");
+  const cacheKey = sanitizedQuery
+    ? `${accountIndex}:search:${sanitizedQuery.toLowerCase()}`
+    : `${accountIndex}:${folderId}`;
   if (!forceMock) {
     const cached = driveFolderCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < FOLDER_CACHE_TTL_MS) {
@@ -75,7 +79,9 @@ export async function getDriveFiles(
   }
 
   try {
-    const parentQuery = `'${folderId}' in parents and trashed = false`;
+    const parentQuery = sanitizedQuery
+      ? `name contains '${sanitizedQuery}' and trashed = false`
+      : `'${folderId}' in parents and trashed = false`;
     const fields =
       "nextPageToken, files(id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink, iconLink, thumbnailLink, shared, owners, parents, description)";
     const url = new URL("https://www.googleapis.com/drive/v3/files");
@@ -148,6 +154,7 @@ export async function getDriveFiles(
       files,
       nextPageToken: data.nextPageToken,
       currentFolderId: folderId,
+      currentFolderName: sanitizedQuery ? `Pencarian: "${sanitizedQuery}"` : undefined,
       isMockData: false,
       accountIndex,
       isAuthenticated: true,

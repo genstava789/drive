@@ -18,6 +18,7 @@ import {
   Plus,
   Check,
   ChevronDown,
+  Settings,
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
 import {
@@ -135,15 +136,16 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
   return (
     <>
       <div className="flex items-center gap-2">
-        {/* Setup guide trigger */}
+        {/* Settings button trigger */}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setGuideOpen(true)}
-          className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/90 hover:bg-slate-50 h-8 px-2.5 rounded-lg shadow-2xs"
+          onClick={() => router.push(`/${accountIndex}/settings`)}
+          className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/90 hover:bg-slate-50 h-8 px-2.5 rounded-lg shadow-2xs cursor-pointer"
+          title="Buka Pengaturan & Kredensial"
         >
-          <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-          <span>Setup OAuth</span>
+          <Settings className="h-3.5 w-3.5 text-slate-500" />
+          <span>Setting</span>
         </Button>
 
         {status === "loading" ? (
@@ -291,13 +293,13 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                 <span>Logout Semua Akun</span>
               </DropdownMenuItem>
 
-              {/* Guide modal link */}
+              {/* Settings page link */}
               <DropdownMenuItem
-                onClick={() => setGuideOpen(true)}
-                className="gap-2 text-xs text-slate-600 cursor-pointer"
+                onClick={() => router.push(`/${accountIndex}/settings`)}
+                className="gap-2 text-xs text-slate-700 font-medium cursor-pointer hover:text-blue-600"
               >
-                <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-                <span>Panduan OAuth</span>
+                <Settings className="h-3.5 w-3.5 text-slate-500" />
+                <span>Setting</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
