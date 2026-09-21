@@ -46,32 +46,30 @@ export function DriveTableSkeleton({ rowCount = 7 }: DriveTableSkeletonProps) {
       <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent border-b border-slate-200/80 bg-[#F8F9FA]/90">
+            <TableRow className="hover:bg-transparent border-b border-slate-200/80 bg-[#F8F9FA]/90 select-none">
               {/* Nama Column */}
               <TableHead className="h-9 px-3.5 sm:px-4 py-2 text-xs font-semibold text-slate-700">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-12 bg-slate-300/80 rounded animate-pulse" />
-                </div>
+                <span>Nama</span>
               </TableHead>
 
               {/* Tipe Column */}
-              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-32">
-                <div className="h-3 w-10 bg-slate-300/80 rounded animate-pulse" />
+              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700">
+                <span>Tipe</span>
               </TableHead>
 
               {/* Ukuran Column */}
-              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-28">
-                <div className="h-3 w-12 bg-slate-300/80 rounded animate-pulse" />
+              <TableHead className="hidden sm:table-cell h-9 px-3.5 sm:px-4 py-2 w-28 text-xs font-semibold text-slate-700">
+                <span>Ukuran</span>
               </TableHead>
 
               {/* Diubah Column */}
-              <TableHead className="hidden md:table-cell h-9 px-3.5 sm:px-4 py-2 w-36">
-                <div className="h-3 w-14 bg-slate-300/80 rounded animate-pulse" />
+              <TableHead className="hidden md:table-cell h-9 px-3.5 sm:px-4 py-2 w-36 text-xs font-semibold text-slate-700">
+                <span>Diubah</span>
               </TableHead>
 
               {/* Pemilik Column */}
-              <TableHead className="hidden lg:table-cell h-9 px-3.5 sm:px-4 py-2 w-32">
-                <div className="h-3 w-12 bg-slate-300/80 rounded animate-pulse" />
+              <TableHead className="hidden lg:table-cell h-9 px-3.5 sm:px-4 py-2 w-32 text-xs font-semibold text-slate-700">
+                <span>Pemilik</span>
               </TableHead>
 
               {/* Aksi Column */}
@@ -144,14 +142,10 @@ export function DriveTableSkeleton({ rowCount = 7 }: DriveTableSkeletonProps) {
         </Table>
       </div>
 
-      {/* Pagination Skeleton */}
-      <div className="flex items-center justify-between px-1 text-xs">
-        <Skeleton className="h-4 w-28 rounded" />
-        <div className="flex items-center gap-1">
-          <Skeleton className="h-7 w-16 rounded-md" />
-          <Skeleton className="h-7 w-7 rounded-md" />
-          <Skeleton className="h-7 w-7 rounded-md" />
-        </div>
+      {/* Pagination Status without Skeleton boxes */}
+      <div className="flex items-center justify-between px-1 text-xs text-slate-400">
+        <span className="font-medium">Memuat daftar berkas &amp; folder...</span>
+        <span className="text-[11px] font-mono">Sinkronisasi</span>
       </div>
     </div>
   );

@@ -2,17 +2,20 @@
 
 import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft } from "lucide-react";
 
 export function FileDetailSkeleton() {
   return (
     <div className="w-full space-y-3 animate-in fade-in duration-200">
-      {/* Top Breadcrumb Skeleton */}
+      {/* Top Breadcrumb - real text, no skeleton */}
       <div className="flex items-center gap-2 px-0.5">
-        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-16 rounded" />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-2xs">
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </div>
+        <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
+          <span>My Drive</span>
           <span className="text-slate-300">/</span>
-          <Skeleton className="h-4 w-40 rounded" />
+          <span className="text-slate-400 font-medium">Memuat berkas...</span>
         </div>
       </div>
 

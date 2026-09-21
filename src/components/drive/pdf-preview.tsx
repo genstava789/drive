@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import { DriveFile } from "@/types/drive";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +22,22 @@ import {
   Server,
   Activity,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+
+const ReactPdfViewer = dynamic(
+  () => import("./react-pdf-viewer").then((mod) => mod.ReactPdfViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center p-12 text-xs text-slate-500 gap-2">
+        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+        <span>Memuat modul react-pdf...</span>
+      </div>
+    ),
+  }
+);
 
 interface PdfPreviewProps {
   file: DriveFile;
@@ -30,10 +45,10 @@ interface PdfPreviewProps {
 
 export function PdfPreview({ file }: PdfPreviewProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 4;
+  const [totalPages, setTotalPages] = useState(4);
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [viewMode, setViewMode] = useState<"doc" | "iframe">("doc");
+  const [viewMode, setViewMode] = useState<"pdf" | "doc" | "iframe">("pdf");
 
   const downloadUrl =
     file.webContentLink ||
@@ -78,8 +93,18 @@ export function PdfPreview({ file }: PdfPreviewProps) {
           {/* Mode Switcher */}
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
             <button
+              onClick={() => setViewMode("pdf")}
+              className={`px-2 py-1 text-[11px] font-medium rounded-md transition cursor-pointer ${
+                viewMode === "pdf"
+                  ? "bg-blue-50 text-blue-700 font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              React-PDF
+            </button>
+            <button
               onClick={() => setViewMode("doc")}
-              className={`px-2 py-1 text-[11px] font-medium rounded-md transition ${
+              className={`px-2 py-1 text-[11px] font-medium rounded-md transition cursor-pointer ${
                 viewMode === "doc"
                   ? "bg-blue-50 text-blue-700 font-semibold"
                   : "text-slate-600 hover:text-slate-900"
@@ -89,7 +114,7 @@ export function PdfPreview({ file }: PdfPreviewProps) {
             </button>
             <button
               onClick={() => setViewMode("iframe")}
-              className={`px-2 py-1 text-[11px] font-medium rounded-md transition ${
+              className={`px-2 py-1 text-[11px] font-medium rounded-md transition cursor-pointer ${
                 viewMode === "iframe"
                   ? "bg-blue-50 text-blue-700 font-semibold"
                   : "text-slate-600 hover:text-slate-900"
@@ -99,8 +124,8 @@ export function PdfPreview({ file }: PdfPreviewProps) {
             </button>
           </div>
 
-          {/* Page Navigator (Doc Mode) */}
-          {viewMode === "doc" && (
+          {/* Page Navigator */}
+          {viewMode !== "iframe" && (
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shadow-2xs">
               <button
                 disabled={currentPage <= 1}
@@ -127,7 +152,7 @@ export function PdfPreview({ file }: PdfPreviewProps) {
           )}
 
           {/* Zoom Controls */}
-          {viewMode === "doc" && (
+          {viewMode !== "iframe" && (
             <div className="hidden sm:flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1 py-0.5 shadow-2xs">
               <button
                 onClick={handleZoomOut}
@@ -163,7 +188,7 @@ export function PdfPreview({ file }: PdfPreviewProps) {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[11px] gap-1 text-slate-700"
+              className="h-7 px-2 text-[11px] gap-1 text-slate-700 cursor-pointer"
             >
               <Download className="h-3 w-3" />
               <span className="hidden sm:inline">Unduh PDF</span>
@@ -174,7 +199,7 @@ export function PdfPreview({ file }: PdfPreviewProps) {
             variant="ghost"
             size="iconSm"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="h-7 w-7 text-slate-500 hover:text-slate-900"
+            className="h-7 w-7 text-slate-500 hover:text-slate-900 cursor-pointer"
             title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
           >
             {isFullscreen ? (
@@ -192,7 +217,16 @@ export function PdfPreview({ file }: PdfPreviewProps) {
           isFullscreen ? "flex-1" : "min-h-[420px] max-h-[580px]"
         }`}
       >
-        {viewMode === "iframe" ? (
+        {viewMode === "pdf" ? (
+          /* Native Canvas PDF rendering using react-pdf */
+          <ReactPdfViewer
+            fileUrl={downloadUrl}
+            currentPage={currentPage}
+            zoom={zoom}
+            onTotalPagesChange={(t) => setTotalPages(t)}
+            onFallback={() => setViewMode("doc")}
+          />
+        ) : viewMode === "iframe" ? (
           /* Google Drive Official Embedded Viewer */
           <div className="w-full h-[520px] rounded-lg overflow-hidden border border-slate-300 bg-white shadow-md relative">
             <iframe

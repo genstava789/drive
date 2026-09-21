@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { DriveFile } from "@/types/drive";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -194,107 +195,105 @@ npm run build
         }`}
       >
         {activeTab === "preview" ? (
-          /* Rendered Markdown Preview with GitHub-Flavored Aesthetics */
-          <div className="max-w-3xl mx-auto space-y-5 text-slate-800 text-xs sm:text-sm select-text">
-            {/* H1 */}
-            <div className="border-b border-slate-200 pb-3">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
-                LeviDrive - Google Drive Explorer Next.js 15+
-              </h1>
-            </div>
-
-            {/* Alert / Note Blockquote */}
-            <div className="rounded-lg border-l-4 border-blue-600 bg-blue-50/60 p-3.5 text-xs text-blue-950 space-y-1">
-              <p className="font-bold text-blue-900 flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-blue-600" /> Catatan Arsitektur
-              </p>
-              <p className="leading-relaxed">
-                Aplikasi penjelajah berkas Google Drive modern dengan tema <strong>White Smoke</strong>,
-                sorting headless TanStack Table v8, integrasi multi-akun, dan pratinjau berkas interaktif.
-              </p>
-            </div>
-
-            {/* Checklist / Features Section */}
-            <div className="space-y-2">
-              <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-1.5">
-                Fitur Utama & Keunggulan
-              </h2>
-              <ul className="space-y-1.5 pt-1">
-                {[
-                  "Multi-Account Login: Dukungan login beberapa akun Google sekaligus (/0, /1)",
-                  "Individual Logout: Tombol keluar mandiri untuk setiap akun Google atau akun demo",
-                  "Empty State Auto-Detection: Tampilan tabel kosong informatif saat seluruh akun di-logout",
-                  "TanStack Table Headless: Sorting nama berkas, ukuran, waktu diubah, dan tipe berkas",
-                  "LightBox Image Slides: Integrasi yet-another-react-lightbox untuk pratinjau foto & slide",
-                  "PDF & Markdown Native Preview: Pratinjau dokumen PDF dan Markdown langsung di peramban",
-                ].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>{feature}</span>
+          /* Dynamic Markdown Rendering via react-markdown */
+          <div className="max-w-3xl mx-auto space-y-4 text-slate-800 text-xs sm:text-sm select-text">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => (
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 border-b border-slate-200 pb-3 mb-3">
+                    <Sparkles className="h-5 w-5 text-blue-600 shrink-0" />
+                    <span>{children}</span>
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-1.5 pt-3 mb-2 flex items-center gap-1.5">
+                    <span>{children}</span>
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-sm font-bold text-slate-900 pt-2 mb-1">
+                    {children}
+                  </h3>
+                ),
+                p: ({ children }) => (
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mb-2.5">
+                    {children}
+                  </p>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="rounded-lg border-l-4 border-blue-600 bg-blue-50/60 p-3 text-xs sm:text-sm text-blue-950 my-3">
+                    {children}
+                  </blockquote>
+                ),
+                ul: ({ children }) => (
+                  <ul className="space-y-1.5 my-2 text-xs sm:text-sm text-slate-700 pl-4 list-disc">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="space-y-1.5 my-2 text-xs sm:text-sm text-slate-700 pl-4 list-decimal">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                    {children}
                   </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Formatted Markdown Table */}
-            <div className="space-y-2 pt-2">
-              <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-1.5">
-                Spesifikasi Stack Teknologi
-              </h2>
-              <div className="rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
-                <table className="w-full text-left text-xs">
+                ),
+                code: ({ className, children }) => {
+                  const isBlock = className || (typeof children === "string" && children.includes("\n"));
+                  return isBlock ? (
+                    <div className="rounded-lg bg-slate-900 text-slate-100 p-3.5 font-mono text-xs overflow-x-auto shadow-inner my-2.5">
+                      <code>{children}</code>
+                    </div>
+                  ) : (
+                    <code className="px-1.5 py-0.5 rounded bg-slate-100 text-blue-700 font-mono text-[11px] sm:text-xs">
+                      {children}
+                    </code>
+                  );
+                },
+                table: ({ children }) => (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden shadow-2xs my-3">
+                    <table className="w-full text-left text-xs">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
                   <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
-                    <tr>
-                      <th className="p-2.5">Komponen</th>
-                      <th className="p-2.5">Versi / Stack</th>
-                      <th className="p-2.5">Keterangan</th>
-                    </tr>
+                    {children}
                   </thead>
+                ),
+                tbody: ({ children }) => (
                   <tbody className="divide-y divide-slate-100">
-                    <tr>
-                      <td className="p-2.5 font-bold text-slate-900">Framework</td>
-                      <td className="p-2.5">Next.js 16.3+ (App Router)</td>
-                      <td className="p-2.5 text-slate-600">Server Components & Edge Rendering</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-bold text-slate-900">Styling</td>
-                      <td className="p-2.5">Tailwind CSS v4</td>
-                      <td className="p-2.5 text-slate-600">Tema Elegan White Smoke</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-bold text-slate-900">Table Engine</td>
-                      <td className="p-2.5">TanStack Table v8</td>
-                      <td className="p-2.5 text-slate-600">Headless Sorting, Filter, Pagination</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-bold text-slate-900">Authentication</td>
-                      <td className="p-2.5">NextAuth v5 (Auth.js)</td>
-                      <td className="p-2.5 text-slate-600">OAuth 2.0 Google Drive API v3</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-bold text-slate-900">Image Lightbox</td>
-                      <td className="p-2.5">yet-another-react-lightbox</td>
-                      <td className="p-2.5 text-slate-600">Slide show & preview layar penuh</td>
-                    </tr>
+                    {children}
                   </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Code Snippet Block */}
-            <div className="space-y-2 pt-2">
-              <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
-                <Terminal className="h-4 w-4 text-blue-600" /> Konfigurasi Lingkungan (.env.local)
-              </h2>
-              <div className="rounded-lg bg-slate-900 text-slate-100 p-3.5 font-mono text-xs overflow-x-auto shadow-inner space-y-1">
-                <p className="text-slate-400"># Google Drive API OAuth Credentials</p>
-                <p><span className="text-cyan-400">GOOGLE_CLIENT_ID</span>=&quot;your-google-client-id.apps.googleusercontent.com&quot;</p>
-                <p><span className="text-cyan-400">GOOGLE_CLIENT_SECRET</span>=&quot;your-google-client-secret&quot;</p>
-                <p><span className="text-cyan-400">NEXTAUTH_URL</span>=&quot;https://drive-iota-vert.vercel.app&quot;</p>
-                <p><span className="text-cyan-400">AUTH_URL</span>=&quot;https://drive-iota-vert.vercel.app&quot;</p>
-              </div>
-            </div>
+                ),
+                th: ({ children }) => (
+                  <th className="p-2.5 font-semibold text-slate-900">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="p-2.5 text-slate-700">
+                    {children}
+                  </td>
+                ),
+                a: ({ href, children }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    {children}
+                  </a>
+                ),
+                hr: () => <hr className="my-4 border-slate-200" />,
+              }}
+            >
+              {sampleMarkdown}
+            </ReactMarkdown>
           </div>
         ) : (
           /* Raw Markdown Viewer with Line Numbers */
