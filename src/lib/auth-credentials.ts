@@ -1,6 +1,12 @@
 import fs from "fs";
 import path from "path";
 
+export interface GoogleCredentialsResult {
+  clientId: string;
+  clientSecret: string;
+  source: string;
+}
+
 export function cleanCredential(val: unknown): string {
   if (!val) return "";
   let s = String(val).trim();
@@ -37,7 +43,7 @@ export function cleanCredential(val: unknown): string {
  * Prioritas 2: credentials.json di root project (tipe web atau installed)
  * Prioritas 3 (Vercel Fallback): Kredensial pengguna terkonfigurasi resmi dari credentials.json
  */
-export function getGoogleCredentials() {
+export function getGoogleCredentials(): GoogleCredentialsResult {
   const envClientId = cleanCredential(
     process.env.GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID
   );

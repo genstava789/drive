@@ -1,12 +1,12 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { getGoogleCredentials } from "./auth-credentials";
+import { getGoogleCredentials } from "@/lib/auth-credentials";
 import {
   fetchStateFromSupabase,
   saveStateToSupabase,
   removeAccountFromSupabase,
-} from "./supabase";
+} from "@/lib/supabase";
 
 export interface ServerAccount {
   id: string;

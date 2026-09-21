@@ -178,7 +178,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             </div>
           </div>
 
-          {/* Quick Actions (Download, Copy URL, Open Drive) */}
+          {/* Quick Actions (Download, Open Drive) */}
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
             {/* Direct Download Button via Cloudflare Worker */}
             <a
@@ -197,29 +197,6 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
               </Button>
             </a>
 
-            {/* Copy Cloudflare Worker Download URL Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(downloadUrl, "downloadUrl")}
-              className="flex-1 sm:flex-initial h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer"
-              title="Salin URL Unduh (Cloudflare Worker)"
-            >
-              {copiedField === "downloadUrl" ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-semibold text-[11px]">
-                    Tersalin!
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5 text-slate-500" />
-                  <span className="text-[11px]">Salin URL</span>
-                </>
-              )}
-            </Button>
-
             {/* Open in Google Drive Button */}
             {file.webViewLink && (
               <a
@@ -232,9 +209,10 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
                   variant="outline"
                   size="sm"
                   className="w-full h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer"
+                  title="Buka di Google Drive"
                 >
                   <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
-                  <span className="text-[11px]">Buka di Drive</span>
+                  <span className="text-[11px]">Open Drive</span>
                 </Button>
               </a>
             )}
@@ -311,7 +289,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
         </div>
 
         {/* Direct Download URL Card */}
-        <div className="file-download-card rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-1.5 overflow-hidden w-full">
+        <div className="file-download-card rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-2 overflow-hidden w-full">
           <div className="flex items-center justify-between text-xs">
             <span className="file-download-title font-semibold text-blue-900 flex items-center gap-1.5 text-[11px] sm:text-xs shrink-0">
               <Download className="file-download-icon h-3.5 w-3.5 text-blue-600 shrink-0" /> Link Download Langsung
@@ -331,9 +309,11 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
               )}
             </button>
           </div>
-          <p className="file-download-box font-mono text-[10px] sm:text-[11px] text-slate-600 truncate break-all bg-white/80 border border-blue-100/80 rounded-md px-2.5 py-1 min-w-0">
-            {downloadUrl}
-          </p>
+          <div className="w-full overflow-x-auto rounded-md border border-blue-100/80 bg-white/90 p-2 shadow-2xs [scrollbar-width:thin]">
+            <p className="file-download-box font-mono text-[10px] sm:text-[11px] text-slate-700 whitespace-nowrap select-all inline-block min-w-full">
+              {downloadUrl}
+            </p>
+          </div>
         </div>
       </div>
 

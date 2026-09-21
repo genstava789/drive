@@ -3,6 +3,12 @@ import Google from "next-auth/providers/google";
 import fs from "fs";
 import path from "path";
 import { GoogleAccount } from "@/types/drive";
+import { getGoogleCredentials } from "@/lib/auth-credentials";
+import {
+  saveServerAccount,
+  refreshGoogleAccessToken,
+  getServerStoreState,
+} from "@/lib/server-account-store";
 
 // Konfigurasi dinamis AUTH_URL dan NEXTAUTH_URL untuk pengujian localhost & deployment Vercel
 const isVercel = Boolean(
@@ -50,43 +56,6 @@ if (isVercel) {
   process.env.AUTH_URL = process.env.AUTH_URL.split("/api/auth")[0].replace(/\/$/, "");
   process.env.NEXTAUTH_URL = process.env.AUTH_URL;
 }
-
-function cleanCredential(val: unknown): string {
-  if (!val) return "";
-  let s = String(val).trim();
-  // Hapus awalan KEY= jika pengguna tidak sengaja menempel seluruh KEY=VALUE ke dalam field Vercel
-  if (s.includes("=")) {
-    const parts = s.split("=");
-    if (
-      parts.length === 2 &&
-      (parts[0].includes("CLIENT") ||
-        parts[0].includes("SECRET") ||
-        parts[0].includes("ID") ||
-        parts[0].includes("AUTH"))
-    ) {
-      s = parts[1].trim();
-    }
-  }
-  // Hapus tanda kutip ganda, kutip tunggal, backtick, dan spasi di awal/akhir
-  s = s.replace(/^[`"'\s]+|[`"'\s]+$/g, "");
-  // Abaikan jika nilai masih berupa placeholder contoh
-  if (
-    s.includes("your-google") ||
-    s.includes("example") ||
-    s === "undefined" ||
-    s === "null"
-  ) {
-    return "";
-  }
-  return s;
-}
-
-import { getGoogleCredentials } from "./auth-credentials";
-import {
-  saveServerAccount,
-  refreshGoogleAccessToken,
-  getServerStoreState,
-} from "./server-account-store";
 
 export { getGoogleCredentials };
 
