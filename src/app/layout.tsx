@@ -43,7 +43,12 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           enableSystem
-          themes={["light", "midnight", "dark"]}
+          themes={["light", "midnight"]}
+          value={{
+            light: "light",
+            dark: "midnight",
+            midnight: "midnight",
+          }}
         >
           <SessionProvider>{children}</SessionProvider>
         </ThemeProvider>

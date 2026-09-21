@@ -43,7 +43,9 @@
 
 /* Midnight Color Palette (Celestial Deep Obsidian & Sky Blue Glow) */
 .midnight,
-[data-theme="midnight"] {
+[data-theme="midnight"],
+.dark,
+[data-theme="dark"] {
   --background: #0B0F19;
   --foreground: #F1F5F9;
 
@@ -77,45 +79,6 @@
   --whitesmoke-200: #1E293B;
   --whitesmoke-300: #24324D;
   --whitesmoke-400: #334155;
-  --whitesmoke-border: #1E293B;
-}
-
-/* Classic Dark Theme */
-.dark,
-[data-theme="dark"] {
-  --background: #090D16;
-  --foreground: #F8FAFC;
-
-  --card: #0F172A;
-  --card-foreground: #F8FAFC;
-
-  --popover: #0F172A;
-  --popover-foreground: #F8FAFC;
-
-  --primary: #3B82F6;
-  --primary-foreground: #FFFFFF;
-
-  --secondary: #1E293B;
-  --secondary-foreground: #E2E8F0;
-
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
-
-  --accent: #1E293B;
-  --accent-foreground: #F8FAFC;
-
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-
-  --border: #1E293B;
-  --input: #1E293B;
-  --ring: #3B82F6;
-
-  --whitesmoke-50: #1E293B;
-  --whitesmoke-100: #090D16;
-  --whitesmoke-200: #1E293B;
-  --whitesmoke-300: #334155;
-  --whitesmoke-400: #475569;
   --whitesmoke-border: #1E293B;
 }
 
@@ -194,25 +157,31 @@
 /* ==========================================================================
    MIDNIGHT COLOR PALETTE THEME ENHANCEMENTS
    Strictly preserving 100% of all layout structures, paddings & margins.
-   Only coloring surfaces, borders, text, tables, and controls.
+   Full celestial obsidian dark theme with luminous accents.
    ========================================================================== */
 
 .midnight body,
 .midnight [class*="bg-[#F6F7F9]"],
-.midnight .bg-\[\#F6F7F9\] {
+.midnight .bg-\[\#F6F7F9\],
+.dark body,
+.dark [class*="bg-[#F6F7F9]"],
+.dark .bg-\[\#F6F7F9\] {
   background-color: #0B0F19 !important;
   color: #F1F5F9 !important;
 }
 
 /* Header & Navigation Bar in Midnight */
 .midnight header,
-.midnight .glass-nav {
+.midnight .glass-nav,
+.dark header,
+.dark .glass-nav {
   background-color: rgba(11, 15, 25, 0.88) !important;
   border-color: rgba(30, 41, 59, 0.85) !important;
 }
 
 /* Footer in Midnight */
-.midnight footer {
+.midnight footer,
+.dark footer {
   background-color: rgba(11, 15, 25, 0.88) !important;
   border-color: rgba(30, 41, 59, 0.8) !important;
 }
@@ -221,51 +190,84 @@
 .midnight .bg-white,
 .midnight [class*="bg-white/90"],
 .midnight [class*="bg-white/85"],
-.midnight [class*="bg-white/80"] {
+.midnight [class*="bg-white/80"],
+.dark .bg-white,
+.dark [class*="bg-white/90"],
+.dark [class*="bg-white/85"],
+.dark [class*="bg-white/80"] {
   background-color: #111827 !important;
   color: #F1F5F9 !important;
 }
 
+/* Horizontal Lines, Dividers, and Borders in Midnight */
+.midnight hr,
+.dark hr {
+  border-color: #1E293B !important;
+}
+
 .midnight .border-slate-200,
 .midnight [class*="border-slate-200"],
-.midnight [class*="border-slate-100"] {
+.midnight [class*="border-slate-100"],
+.midnight [class*="border-slate-300"],
+.dark .border-slate-200,
+.dark [class*="border-slate-200"],
+.dark [class*="border-slate-100"],
+.dark [class*="border-slate-300"] {
+  border-color: #1E293B !important;
+}
+
+.midnight [class*="divide-slate-"] > :not([hidden]) ~ :not([hidden]),
+.dark [class*="divide-slate-"] > :not([hidden]) ~ :not([hidden]) {
   border-color: #1E293B !important;
 }
 
 /* Text Hierarchy in Midnight */
 .midnight [class*="text-slate-900"],
-.midnight [class*="text-slate-800"] {
+.midnight [class*="text-slate-800"],
+.dark [class*="text-slate-900"],
+.dark [class*="text-slate-800"] {
   color: #F8FAFC !important;
 }
 
 .midnight [class*="text-slate-700"],
-.midnight [class*="text-slate-600"] {
+.midnight [class*="text-slate-600"],
+.dark [class*="text-slate-700"],
+.dark [class*="text-slate-600"] {
   color: #CBD5E1 !important;
 }
 
-.midnight [class*="text-slate-500"] {
+.midnight [class*="text-slate-500"],
+.dark [class*="text-slate-500"] {
   color: #94A3B8 !important;
 }
 
-.midnight [class*="text-slate-400"] {
+.midnight [class*="text-slate-400"],
+.dark [class*="text-slate-400"] {
   color: #64748B !important;
 }
 
 /* Brand Typography & Accents in Midnight */
-.midnight .font-outfit .text-slate-900 {
+.midnight .font-outfit .text-slate-900,
+.dark .font-outfit .text-slate-900 {
   color: #FFFFFF !important;
 }
 
-.midnight .text-blue-600 {
+.midnight .text-blue-600,
+.dark .text-blue-600 {
   color: #38BDF8 !important;
 }
 
-/* Sub-surfaces, Chips, and Table Headers in Midnight */
+/* Sub-surfaces, Chips, and Neutral Backgrounds in Midnight */
 .midnight [class*="bg-slate-50"],
 .midnight [class*="bg-slate-100"],
 .midnight [class*="bg-[#F8F9FA]"],
+.midnight [class*="bg-[#FAFAFB]"],
 .midnight .bg-\[\#F8F9FA\]\/90,
-.midnight .bg-\[\#F8F9FA\]\/80 {
+.midnight .bg-\[\#F8F9FA\]\/80,
+.dark [class*="bg-slate-50"],
+.dark [class*="bg-slate-100"],
+.dark [class*="bg-[#F8F9FA]"],
+.dark [class*="bg-[#FAFAFB]"] {
   background-color: #162032 !important;
   color: #E2E8F0 !important;
 }
@@ -273,52 +275,311 @@
 /* Interactive Hovers in Midnight */
 .midnight [class*="hover:bg-slate-50"]:hover,
 .midnight [class*="hover:bg-slate-100"]:hover,
-.midnight [class*="hover:bg-blue-50"]:hover {
+.midnight [class*="hover:bg-blue-50"]:hover,
+.dark [class*="hover:bg-slate-50"]:hover,
+.dark [class*="hover:bg-slate-100"]:hover,
+.dark [class*="hover:bg-blue-50"]:hover {
   background-color: #1E293B !important;
 }
 
 /* Table Specific Enhancements in Midnight */
-.midnight table thead {
+.midnight table thead,
+.dark table thead {
   background-color: #162032 !important;
   border-color: #1E293B !important;
 }
 
-.midnight table thead th {
+.midnight table thead th,
+.dark table thead th {
+  color: #94A3B8 !important;
+  border-color: #1E293B !important;
+}
+
+.midnight table thead th button,
+.dark table thead th button {
   color: #94A3B8 !important;
 }
 
-.midnight table tbody tr {
+.midnight table thead th button:hover,
+.dark table thead th button:hover {
+  color: #38BDF8 !important;
+}
+
+.midnight table thead .lucide-arrow-up,
+.midnight table thead .lucide-arrow-down,
+.dark table thead .lucide-arrow-up,
+.dark table thead .lucide-arrow-down {
+  color: #38BDF8 !important;
+}
+
+.midnight table thead .lucide-arrow-up-down,
+.dark table thead .lucide-arrow-up-down {
+  color: #64748B !important;
+}
+
+.midnight table tbody tr,
+.dark table tbody tr {
   border-color: #1E293B !important;
   background-color: #111827 !important;
 }
 
-.midnight table tbody tr:hover {
-  background-color: #172238 !important;
+.midnight table tbody tr:hover,
+.midnight table tbody tr[class*="hover:"]:hover,
+.dark table tbody tr:hover {
+  background-color: #162032 !important;
 }
 
-.midnight table td {
+.midnight table td,
+.dark table td {
   color: #E2E8F0 !important;
 }
 
-/* Inputs & Search Toolbar in Midnight */
-.midnight input {
+.midnight table tbody tr p,
+.dark table tbody tr p {
+  color: #F1F5F9 !important;
+}
+
+.midnight table tbody tr:hover p,
+.dark table tbody tr:hover p {
+  color: #38BDF8 !important;
+}
+
+/* ==========================================================================
+   FILE TYPE ICONS IN TABLE & GRID (Vibrant Luminous Contrast)
+   ========================================================================== */
+
+.midnight [class*="bg-amber-50"],
+.dark [class*="bg-amber-50"] {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #FBBF24 !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35) !important;
+}
+
+.midnight [class*="bg-blue-50"]:not(.file-download-card),
+.dark [class*="bg-blue-50"]:not(.file-download-card) {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: #38BDF8 !important;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35) !important;
+}
+
+.midnight [class*="bg-emerald-50"],
+.dark [class*="bg-emerald-50"] {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34D399 !important;
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35) !important;
+}
+
+.midnight [class*="bg-orange-50"],
+.dark [class*="bg-orange-50"] {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+  color: #FB923C !important;
+  box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.35) !important;
+}
+
+.midnight [class*="bg-rose-50"],
+.midnight [class*="bg-rose-100"],
+.dark [class*="bg-rose-50"],
+.dark [class*="bg-rose-100"] {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  color: #FB7185 !important;
+  box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.35) !important;
+}
+
+.midnight [class*="bg-purple-50"],
+.dark [class*="bg-purple-50"] {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #C084FC !important;
+  box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.35) !important;
+}
+
+.midnight [class*="bg-indigo-50"],
+.midnight [class*="bg-indigo-100"],
+.dark [class*="bg-indigo-50"],
+.dark [class*="bg-indigo-100"] {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #818CF8 !important;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.35) !important;
+}
+
+.midnight [class*="bg-teal-50"],
+.dark [class*="bg-teal-50"] {
+  background-color: rgba(20, 184, 166, 0.15) !important;
+  color: #2DD4BF !important;
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.35) !important;
+}
+
+.midnight [class*="bg-cyan-50"],
+.dark [class*="bg-cyan-50"] {
+  background-color: rgba(6, 182, 212, 0.15) !important;
+  color: #22D3EE !important;
+  box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.35) !important;
+}
+
+/* ==========================================================================
+   BADGES & LABELS IN TABLE & DETAIL (Dark Translucent with Glowing Text)
+   ========================================================================== */
+
+.midnight [class*="border-amber-200"],
+.midnight [class*="text-amber-700"],
+.dark [class*="border-amber-200"],
+.dark [class*="text-amber-700"] {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #FCD34D !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+.midnight [class*="border-blue-200"],
+.midnight [class*="text-blue-700"]:not(.file-download-btn),
+.dark [class*="border-blue-200"],
+.dark [class*="text-blue-700"]:not(.file-download-btn) {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: #7DD3FC !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+
+.midnight [class*="border-emerald-200"],
+.midnight [class*="text-emerald-700"],
+.dark [class*="border-emerald-200"],
+.dark [class*="text-emerald-700"] {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6EE7B7 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.midnight [class*="border-purple-200"],
+.midnight [class*="text-purple-700"],
+.dark [class*="border-purple-200"],
+.dark [class*="text-purple-700"] {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #D8B4FE !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+}
+
+.midnight [class*="border-rose-200"],
+.midnight [class*="text-rose-700"],
+.dark [class*="border-rose-200"],
+.dark [class*="text-rose-700"] {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  color: #FDA4AF !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+/* ==========================================================================
+   DRIVE FILE DETAIL PAGE & DIRECT DOWNLOAD UI
+   ========================================================================== */
+
+.midnight .file-download-card,
+.dark .file-download-card {
+  background-color: rgba(14, 28, 54, 0.7) !important;
+  border-color: rgba(30, 58, 95, 0.8) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.midnight .file-download-title,
+.dark .file-download-title {
+  color: #7DD3FC !important;
+}
+
+.midnight .file-download-icon,
+.dark .file-download-icon {
+  color: #38BDF8 !important;
+}
+
+.midnight .file-download-btn,
+.dark .file-download-btn {
+  color: #38BDF8 !important;
+  font-weight: 600 !important;
+}
+
+.midnight .file-download-btn:hover,
+.dark .file-download-btn:hover {
+  color: #BAE6FD !important;
+}
+
+.midnight .file-download-box,
+.dark .file-download-box {
+  background-color: #0B0F19 !important;
+  border-color: #1E293B !important;
+  color: #93C5FD !important;
+}
+
+/* Metadata Rows in File Detail View */
+.midnight .metadata-list,
+.dark .metadata-list {
+  background-color: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.midnight .metadata-row,
+.dark .metadata-row {
+  border-color: #1E293B !important;
+}
+
+.midnight .metadata-row:hover,
+.dark .metadata-row:hover {
+  background-color: #162032 !important;
+}
+
+.midnight .metadata-label,
+.dark .metadata-label {
+  color: #94A3B8 !important;
+}
+
+.midnight .metadata-icon,
+.dark .metadata-icon {
+  color: #38BDF8 !important;
+}
+
+.midnight .metadata-value,
+.dark .metadata-value {
+  color: #F8FAFC !important;
+}
+
+.midnight .metadata-copy-btn,
+.dark .metadata-copy-btn {
+  color: #64748B !important;
+}
+
+.midnight .metadata-copy-btn:hover,
+.dark .metadata-copy-btn:hover {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+/* ==========================================================================
+   INPUTS, SEARCH & TOOLBAR CONTROLS IN MIDNIGHT
+   ========================================================================== */
+
+.midnight input,
+.dark input {
   background-color: #162032 !important;
   border-color: #1E293B !important;
   color: #F1F5F9 !important;
 }
 
-.midnight input::placeholder {
+.midnight input::placeholder,
+.dark input::placeholder {
   color: #64748B !important;
 }
 
-.midnight input:focus-visible {
+.midnight input:focus-visible,
+.dark input:focus-visible {
   border-color: #38BDF8 !important;
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
 }
 
+.midnight select,
+.dark select {
+  background-color: #162032 !important;
+  border-color: #1E293B !important;
+  color: #F1F5F9 !important;
+}
+
 /* Dialog & Dropdown Overlays in Midnight */
 .midnight [role="dialog"],
-.midnight [data-radix-popper-content-wrapper] [class*="rounded-lg"] {
+.midnight [data-radix-popper-content-wrapper] [class*="rounded-lg"],
+.dark [role="dialog"],
+.dark [data-radix-popper-content-wrapper] [class*="rounded-lg"] {
   background-color: #111827 !important;
   border-color: #1E293B !important;
   color: #F1F5F9 !important;
@@ -326,95 +587,50 @@
 }
 
 .midnight [role="menuitem"]:hover,
-.midnight [role="menuitem"]:focus {
+.midnight [role="menuitem"]:focus,
+.dark [role="menuitem"]:hover,
+.dark [role="menuitem"]:focus {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+}
+
+/* Mode Banner in Midnight */
+.midnight [class*="from-blue-50"],
+.dark [class*="from-blue-50"] {
+  background: linear-gradient(to right, rgba(14, 28, 54, 0.85), rgba(22, 32, 50, 0.85)) !important;
+  border-color: #1E293B !important;
+}
+
+/* Circular Buttons (Navigation, Refresh, Back Button) */
+.midnight button.rounded-full.border,
+.dark button.rounded-full.border {
+  background-color: #162032 !important;
+  border-color: #1E293B !important;
+  color: #CBD5E1 !important;
+}
+
+.midnight button.rounded-full.border:hover,
+.dark button.rounded-full.border:hover {
   background-color: #1E293B !important;
   color: #FFFFFF !important;
 }
 
 /* Skeleton Loading in Midnight */
-.midnight .animate-pulse {
+.midnight .animate-pulse,
+.dark .animate-pulse {
   background-color: #1E293B !important;
 }
 
 /* Scrollbar in Midnight */
-.midnight ::-webkit-scrollbar-track {
+.midnight ::-webkit-scrollbar-track,
+.dark ::-webkit-scrollbar-track {
   background: #0B0F19;
 }
-.midnight ::-webkit-scrollbar-thumb {
+.midnight ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
   background: #1E293B;
 }
-.midnight ::-webkit-scrollbar-thumb:hover {
+.midnight ::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
-}
-
-/* ==========================================================================
-   CLASSIC DARK THEME ENHANCEMENTS
-   ========================================================================== */
-.dark body,
-.dark [class*="bg-[#F6F7F9]"],
-.dark .bg-\[\#F6F7F9\] {
-  background-color: #090D16 !important;
-  color: #F8FAFC !important;
-}
-
-.dark header,
-.dark .glass-nav,
-.dark footer {
-  background-color: rgba(9, 13, 22, 0.9) !important;
-  border-color: rgba(30, 41, 59, 0.8) !important;
-}
-
-.dark .bg-white,
-.dark [class*="bg-white/"] {
-  background-color: #0F172A !important;
-  color: #F8FAFC !important;
-}
-
-.dark .border-slate-200,
-.dark [class*="border-slate-200"],
-.dark [class*="border-slate-100"] {
-  border-color: #1E293B !important;
-}
-
-.dark [class*="text-slate-900"],
-.dark [class*="text-slate-800"] {
-  color: #F8FAFC !important;
-}
-
-.dark [class*="text-slate-700"],
-.dark [class*="text-slate-600"],
-.dark [class*="text-slate-500"] {
-  color: #94A3B8 !important;
-}
-
-.dark [class*="bg-slate-50"],
-.dark [class*="bg-slate-100"],
-.dark [class*="bg-[#F8F9FA]"] {
-  background-color: #1E293B !important;
-  color: #E2E8F0 !important;
-}
-
-.dark [class*="hover:bg-slate-50"]:hover,
-.dark [class*="hover:bg-slate-100"]:hover,
-.dark [class*="hover:bg-blue-50"]:hover {
-  background-color: #334155 !important;
-}
-
-.dark table thead {
-  background-color: #1E293B !important;
-}
-
-.dark table tbody tr {
-  background-color: #0F172A !important;
-  border-color: #1E293B !important;
-}
-
-.dark table tbody tr:hover {
-  background-color: #1E293B !important;
-}
-
-.dark input {
-  background-color: #1E293B !important;
-  border-color: #334155 !important;
-  color: #F8FAFC !important;
 }

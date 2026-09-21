@@ -5,7 +5,6 @@ import { useTheme } from "next-themes";
 import {
   Sun,
   Moon,
-  Sparkles,
   Laptop,
   Check,
 } from "lucide-react";
@@ -33,9 +32,8 @@ export function ThemeToggle() {
     );
   }
 
-  const isMidnight = theme === "midnight";
   const isLight = theme === "light" || (theme === "system" && resolvedTheme === "light");
-  const isDark = theme === "dark" || (theme === "system" && resolvedTheme === "dark" && !isMidnight);
+  const isMidnight = theme === "midnight" || (theme === "system" && resolvedTheme !== "light");
 
   return (
     <DropdownMenu>
@@ -45,8 +43,6 @@ export function ThemeToggle() {
           title={`Ganti Tema (Aktif: ${
             theme === "midnight"
               ? "Midnight"
-              : theme === "dark"
-              ? "Dark"
               : theme === "light"
               ? "White Smoke"
               : "Sistem"
@@ -55,12 +51,10 @@ export function ThemeToggle() {
         >
           {isMidnight ? (
             <div className="relative flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-sky-400 transition-transform duration-200 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
+              <Moon className="h-4 w-4 text-sky-400 transition-transform duration-200 group-hover:-rotate-12 drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]" />
             </div>
-          ) : isLight ? (
-            <Sun className="h-4 w-4 text-amber-500 transition-transform duration-200 group-hover:rotate-45" />
           ) : (
-            <Moon className="h-4 w-4 text-indigo-400 transition-transform duration-200 group-hover:-rotate-12" />
+            <Sun className="h-4 w-4 text-amber-500 transition-transform duration-200 group-hover:rotate-45" />
           )}
         </button>
       </DropdownMenuTrigger>
@@ -87,7 +81,7 @@ export function ThemeToggle() {
           {theme === "light" && <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />}
         </DropdownMenuItem>
 
-        {/* Midnight Palette (New Celestial Theme) */}
+        {/* Midnight Palette */}
         <DropdownMenuItem
           onClick={() => setTheme("midnight")}
           className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
@@ -97,33 +91,10 @@ export function ThemeToggle() {
           }`}
         >
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Sparkles className="h-3.5 w-3.5 text-sky-400" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>Midnight</span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                Baru
-              </span>
-            </div>
+            <Moon className="h-3.5 w-3.5 text-sky-400" />
+            <span>Midnight</span>
           </div>
           {theme === "midnight" && <Check className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
-        </DropdownMenuItem>
-
-        {/* Dark Slate */}
-        <DropdownMenuItem
-          onClick={() => setTheme("dark")}
-          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-            theme === "dark"
-              ? "bg-slate-100 text-slate-900 font-semibold"
-              : "text-slate-700 hover:bg-slate-100"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Moon className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Dark Slate</span>
-          </div>
-          {theme === "dark" && <Check className="h-3.5 w-3.5 text-slate-900 shrink-0" />}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator className="my-1" />
