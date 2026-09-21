@@ -33,12 +33,14 @@ interface DriveExplorerProps {
   accountIndex?: number;
   initialFolderId?: string;
   initialFolderName?: string;
+  initialBreadcrumbs?: BreadcrumbItem[];
 }
 
 export function DriveExplorer({
   accountIndex = 0,
   initialFolderId = "root",
   initialFolderName,
+  initialBreadcrumbs,
 }: DriveExplorerProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -53,6 +55,12 @@ export function DriveExplorer({
   });
   const [currentFolderId, setCurrentFolderId] = useState<string>(initialFolderId);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>(() => {
+    if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
+      if (typeof window !== "undefined" && initialFolderId) {
+        saveBreadcrumbsForFolder(initialFolderId, initialBreadcrumbs);
+      }
+      return initialBreadcrumbs;
+    }
     if (initialFolderId && initialFolderId !== "root") {
       const stored = getStoredBreadcrumbs(initialFolderId, initialFolderName);
       if (stored && stored.length > 0) {
@@ -138,18 +146,24 @@ export function DriveExplorer({
 
         if (folderId !== "root") {
           setBreadcrumbs((prev) => {
-            const stored = getStoredBreadcrumbs(
-              folderId,
-              data.currentFolderName || initialFolderName
-            );
-            if (stored && stored.length > 0) {
-              if (data.currentFolderName) {
-                stored[stored.length - 1].name = data.currentFolderName;
-                saveBreadcrumbsForFolder(folderId, stored);
-              }
-              return stored;
+            // 1. If server returned authoritative breadcrumb hierarchy, prioritize it
+            if (data.breadcrumbs && data.breadcrumbs.length > 0) {
+              saveBreadcrumbsForFolder(folderId, data.breadcrumbs);
+              return data.breadcrumbs;
             }
 
+            // 2. If prev already ends with folderId, retain prev and update name if needed
+            if (prev.length > 0 && prev[prev.length - 1].id === folderId) {
+              if (data.currentFolderName && prev[prev.length - 1].name !== data.currentFolderName) {
+                const updated = [...prev];
+                updated[updated.length - 1].name = data.currentFolderName;
+                saveBreadcrumbsForFolder(folderId, updated);
+                return updated;
+              }
+              return prev;
+            }
+
+            // 3. If folderId already exists in prev (navigating back up the tree), slice to it
             const existingIdx = prev.findIndex((b) => b.id === folderId);
             if (existingIdx !== -1) {
               const sliced = prev.slice(0, existingIdx + 1);
@@ -160,6 +174,20 @@ export function DriveExplorer({
               return sliced;
             }
 
+            // 4. Check stored breadcrumbs (only if deeper than just root + current)
+            const stored = getStoredBreadcrumbs(
+              folderId,
+              data.currentFolderName || initialFolderName
+            );
+            if (stored && stored.length > 1) {
+              if (data.currentFolderName) {
+                stored[stored.length - 1].name = data.currentFolderName;
+                saveBreadcrumbsForFolder(folderId, stored);
+              }
+              return stored;
+            }
+
+            // 5. Fallback: append folderId to prev
             const folderName =
               data.currentFolderName || initialFolderName || folderId;
             const appended = appendBreadcrumb(prev, {
@@ -483,6 +511,17 @@ export function DriveExplorer({
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [accountIndex, fetchFiles]);
+
+  // Instantly reset to Root Drive when user clicks LeviDrive logo in header
+  useEffect(() => {
+    const handleNavigateRoot = () => {
+      handleBreadcrumbNavigate("root", 0);
+    };
+    window.addEventListener("levidrive_navigate_root", handleNavigateRoot);
+    return () => {
+      window.removeEventListener("levidrive_navigate_root", handleNavigateRoot);
+    };
+  }, [handleBreadcrumbNavigate]);
 
   // Idle prefetching: automatically prefetch immediate subfolders when idle
   useEffect(() => {

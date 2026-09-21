@@ -26,7 +26,7 @@ export function BreadcrumbNav({ breadcrumbs, onNavigate }: BreadcrumbNavProps) {
           <button
             onClick={handleBack}
             className="flex h-7 w-7 sm:h-7.5 sm:w-7.5 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer mr-0.5"
-            title="Kembali ke folder sebelumnya"
+            title={`Kembali ke ${breadcrumbs[breadcrumbs.length - 2]?.name || "folder sebelumnya"}`}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>

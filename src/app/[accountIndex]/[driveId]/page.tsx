@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getValidAccessTokenForAccount } from "@/lib/server-account-store";
-import { getDriveItemById } from "@/lib/google-drive";
+import { getDriveItemById, getFolderBreadcrumbs } from "@/lib/google-drive";
 import { DriveExplorer } from "@/components/drive/drive-explorer";
 import { Button } from "@/components/ui/button";
 import { FileQuestion, ArrowLeft } from "lucide-react";
@@ -47,11 +47,13 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
   }
 
   if (isFolder) {
+    const breadcrumbs = await getFolderBreadcrumbs(driveId, accessToken, accountIndex);
     return (
       <DriveExplorer
         accountIndex={accountIndex}
         initialFolderId={driveId}
         initialFolderName={item.name}
+        initialBreadcrumbs={breadcrumbs}
       />
     );
   }

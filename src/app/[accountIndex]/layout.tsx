@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { UserNav } from "@/components/auth/user-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { Heart } from "lucide-react";
 
 interface AccountLayoutProps {
@@ -21,12 +22,8 @@ export default async function AccountLayout({
       {/* Persistent Top Navbar Header - Always visible, never replaced by loading skeleton */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
-          {/* Brand Logo - LeviDrive with Outfit typography */}
-          <Link href={`/${accountIndex}`} className="flex items-center group">
-            <span className="font-outfit text-xl sm:text-2xl font-black tracking-tight text-slate-900 select-none transition-transform group-hover:scale-[1.01]">
-              Levi<span className="text-blue-600">Drive</span>
-            </span>
-          </Link>
+          {/* Brand Logo - LeviDrive with instant root navigation */}
+          <BrandLogo accountIndex={accountIndex} />
 
           {/* Right Header Controls: Theme Switcher & Multi-Account Navigation */}
           <div className="flex items-center gap-2 sm:gap-2.5">

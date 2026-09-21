@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getDriveFiles, getDriveItemById } from "@/lib/google-drive";
+import { getDriveFiles, getDriveItemById, getFolderBreadcrumbs } from "@/lib/google-drive";
 import {
   getServerStoreState,
   getServerAccounts,
@@ -97,6 +97,17 @@ export async function GET(request: NextRequest) {
       forceRefresh,
       query
     );
+
+    if (folderId !== "root" && !query) {
+      try {
+        const breadcrumbs = await getFolderBreadcrumbs(
+          folderId,
+          accessToken ?? undefined,
+          accountIndex
+        );
+        driveData.breadcrumbs = breadcrumbs;
+      } catch (_) {}
+    }
 
     return NextResponse.json(driveData, {
       headers: {

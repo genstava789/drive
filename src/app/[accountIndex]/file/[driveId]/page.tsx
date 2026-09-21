@@ -1,10 +1,11 @@
 import React from "react";
 import Link from "next/link";
 import { getValidAccessTokenForAccount } from "@/lib/server-account-store";
-import { getDriveItemById } from "@/lib/google-drive";
+import { getDriveItemById, getFolderBreadcrumbs } from "@/lib/google-drive";
 import { FileDetailView } from "@/components/drive/file-detail-view";
 import { Button } from "@/components/ui/button";
 import { FileQuestion, ArrowLeft } from "lucide-react";
+import { BreadcrumbItem } from "@/types/drive";
 
 interface FilePageProps {
   params: Promise<{ accountIndex: string; driveId: string }>;
@@ -39,5 +40,23 @@ export default async function FilePage({ params }: FilePageProps) {
     );
   }
 
-  return <FileDetailView file={item} accountIndex={accountIndex} />;
+  let initialBreadcrumbs: BreadcrumbItem[] | undefined;
+  const parentId = item.parents?.[0];
+  if (parentId && parentId !== "root") {
+    try {
+      initialBreadcrumbs = await getFolderBreadcrumbs(
+        parentId,
+        accessToken,
+        accountIndex
+      );
+    } catch (_) {}
+  }
+
+  return (
+    <FileDetailView
+      file={item}
+      accountIndex={accountIndex}
+      initialBreadcrumbs={initialBreadcrumbs}
+    />
+  );
 }

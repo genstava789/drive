@@ -42,6 +42,7 @@ export interface DriveResponse {
   nextPageToken?: string;
   currentFolderId: string;
   currentFolderName?: string;
+  breadcrumbs?: BreadcrumbItem[];
   isMockData?: boolean;
   accountIndex?: number;
   accounts?: GoogleAccount[];

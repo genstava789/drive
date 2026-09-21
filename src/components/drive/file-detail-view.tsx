@@ -4,12 +4,12 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
-import { DriveFile } from "@/types/drive";
+import { DriveFile, BreadcrumbItem } from "@/types/drive";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileTypeIcon } from "./file-type-icon";
 import { formatBytes, formatDate, getFileCategory, getDownloadUrl } from "@/lib/utils";
-import { getStoredBreadcrumbs } from "@/lib/breadcrumbs";
+import { getStoredBreadcrumbs, saveBreadcrumbsForFolder } from "@/lib/breadcrumbs";
 import {
   ExternalLink,
   Copy,
@@ -31,9 +31,14 @@ import { MarkdownPreview } from "./markdown-preview";
 interface FileDetailViewProps {
   file: DriveFile;
   accountIndex: number;
+  initialBreadcrumbs?: BreadcrumbItem[];
 }
 
-export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
+export function FileDetailView({
+  file,
+  accountIndex,
+  initialBreadcrumbs,
+}: FileDetailViewProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -140,13 +145,22 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         } catch (_) {}
       }
-      const parentId = sessionStorage.getItem(`drive_parent_${file.id}`);
+      const parentId = sessionStorage.getItem(`drive_parent_${file.id}`) || file.parents?.[0];
       if (parentId && parentId !== "root") {
-        return getStoredBreadcrumbs(parentId);
+        const storedParent = getStoredBreadcrumbs(parentId);
+        if (storedParent && storedParent.length > 1) return storedParent;
       }
     }
+    if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(`drive_breadcrumbs_${file.id}`, JSON.stringify(initialBreadcrumbs));
+        } catch (_) {}
+      }
+      return initialBreadcrumbs;
+    }
     return [{ id: "root", name: "My Drive" }];
-  }, [file.id]);
+  }, [file.id, file.parents, initialBreadcrumbs]);
 
   const parentFolder = parentBreadcrumbs[parentBreadcrumbs.length - 1];
   const backUrl =
@@ -165,6 +179,9 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             if (typeof window !== "undefined") {
               sessionStorage.setItem("drive_navigating_type", "folder");
               sessionStorage.setItem("drive_navigating_id", parentFolder?.id || "root");
+              if (parentFolder && parentFolder.id !== "root") {
+                saveBreadcrumbsForFolder(parentFolder.id, parentBreadcrumbs);
+              }
             }
           }}
           className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
