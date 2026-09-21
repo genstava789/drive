@@ -2,6 +2,11 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { getGoogleCredentials } from "./auth-credentials";
+import {
+  fetchStateFromSupabase,
+  saveStateToSupabase,
+  removeAccountFromSupabase,
+} from "./supabase";
 
 export interface ServerAccount {
   id: string;
@@ -172,7 +177,17 @@ async function persistStoreState(state: ServerStoreState): Promise<void> {
   };
   memoryStateLoaded = true;
 
+  // 1. Persist to Supabase Cloud Database (primary)
+  try {
+    await saveStateToSupabase(memoryState);
+  } catch (err) {
+    console.warn("[ServerStore] Supabase save error:", err);
+  }
+
+  // 2. Persist to local storage files
   writeStateToLocalFiles(memoryState);
+
+  // 3. Persist to KV if configured
   await saveStateToKv(memoryState);
 }
 
@@ -229,7 +244,19 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
  * Retrieve current store state (including loggedOut flag and timestamp)
  */
 export async function getServerStoreState(): Promise<ServerStoreState> {
-  // 1. Try external KV first
+  // 1. Try Supabase cloud database first (global cross-device authority)
+  try {
+    const supabaseState = await fetchStateFromSupabase();
+    if (supabaseState) {
+      memoryState = supabaseState;
+      memoryStateLoaded = true;
+      return supabaseState;
+    }
+  } catch (err) {
+    console.warn("[ServerStore] Supabase fetch error:", err);
+  }
+
+  // 2. Try external KV second
   const kvState = await fetchStateFromKv();
   if (kvState) {
     memoryState = kvState;
@@ -237,12 +264,12 @@ export async function getServerStoreState(): Promise<ServerStoreState> {
     return kvState;
   }
 
-  // 2. Try in-memory if already loaded
+  // 3. Try in-memory if already loaded
   if (memoryStateLoaded) {
     return memoryState;
   }
 
-  // 3. Try local files
+  // 4. Try local files
   const fileState = readStateFromLocalFiles();
   if (fileState) {
     memoryState = fileState;
@@ -385,6 +412,10 @@ export async function removeServerAccount(accountId: string): Promise<boolean> {
     state.loggedOut = true;
     state.loggedOutAt = Date.now();
   }
+
+  try {
+    await removeAccountFromSupabase(accountId);
+  } catch (_) {}
 
   await persistStoreState(state);
   return true;
