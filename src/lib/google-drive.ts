@@ -113,7 +113,7 @@ export async function getDriveFiles(
   if (!effectiveToken) {
     try {
       effectiveToken = await getValidAccessTokenForAccount(accountIndex);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (!effectiveToken) {
@@ -129,9 +129,11 @@ export async function getDriveFiles(
   }
 
   try {
+    const effectiveFolderId =
+      folderId === "0AAgz7sm0L0i1Uk9PVA" ? "root" : folderId;
     const parentQuery = sanitizedQuery
       ? `name contains '${sanitizedQuery}' and trashed = false`
-      : `'${folderId}' in parents and trashed = false`;
+      : `'${effectiveFolderId}' in parents and trashed = false`;
 
     // Pruned fields to minimize JSON payload size and transfer time
     const fields =
@@ -180,21 +182,30 @@ export async function getDriveFiles(
     }
 
     const data = await response.json();
-    const files: DriveFile[] = (data.files || []).map((file: any) => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      size: file.size ? parseInt(file.size, 10) : undefined,
-      modifiedTime: file.modifiedTime || new Date().toISOString(),
-      createdTime: file.createdTime,
-      webViewLink: file.webViewLink,
-      webContentLink:
-        file.webContentLink ||
-        `https://drive.google.com/uc?export=download&id=${file.id}`,
-      thumbnailLink: file.thumbnailLink,
-      shared: file.shared || false,
-      parents: file.parents || [folderId],
-    }));
+    const rawFiles: any[] = data.files || [];
+    const files: DriveFile[] = rawFiles
+      .filter(
+        (file: any) =>
+          !(
+            file.name?.toLowerCase() === "my drive" &&
+            file.mimeType === "application/vnd.google-apps.folder"
+          ) && file.id !== "0AAgz7sm0L0i1Uk9PVA"
+      )
+      .map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size ? parseInt(file.size, 10) : undefined,
+        modifiedTime: file.modifiedTime || new Date().toISOString(),
+        createdTime: file.createdTime,
+        webViewLink: file.webViewLink,
+        webContentLink:
+          file.webContentLink ||
+          `https://drive.google.com/uc?export=download&id=${file.id}`,
+        thumbnailLink: file.thumbnailLink,
+        shared: file.shared || false,
+        parents: file.parents || [folderId],
+      }));
 
     // Pre-populate individual item cache so subsequent clicks resolve in 0.1ms
     for (const item of files) {
@@ -257,14 +268,14 @@ export async function getDriveItemById(
         driveItemCache.set(itemCacheKey, { data: supabaseItem, timestamp: Date.now() });
         return supabaseItem;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   let effectiveToken = accessToken;
   if (!effectiveToken) {
     try {
       effectiveToken = await getValidAccessTokenForAccount(accountIndex);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // Real Google Drive API lookup
@@ -321,7 +332,7 @@ export async function getDriveItemById(
         // Save to Supabase cache in the background
         getServerStoreState().then((serverState) => {
           const accountId = resolveAccountId(serverState, accountIndex);
-          upsertFilesToSupabaseCache(accountId, [itemResult]).catch(() => {});
+          upsertFilesToSupabaseCache(accountId, [itemResult]).catch(() => { });
         });
 
         return itemResult;
@@ -443,6 +454,23 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
           toRemove.push(ch.fileId);
           removedCount++;
         } else if (ch.file && ch.file.name) {
+          // Never upsert the drive root itself as a child item
+          if (
+            (ch.file.name?.toLowerCase() === "my drive" &&
+              ch.file.mimeType === "application/vnd.google-apps.folder") ||
+            ch.fileId === "0AAgz7sm0L0i1Uk9PVA"
+          ) {
+            continue;
+          }
+
+          const rawParents: string[] = ch.file.parents || [];
+          const normalizedParents = rawParents.map((p: string) =>
+            p === "0AAgz7sm0L0i1Uk9PVA" ? "root" : p
+          );
+          if (normalizedParents.length === 0) {
+            normalizedParents.push("root");
+          }
+
           toUpsert.push({
             id: ch.file.id,
             name: ch.file.name,
@@ -452,7 +480,7 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
             createdTime: ch.file.createdTime,
             thumbnailLink: ch.file.thumbnailLink,
             shared: ch.file.shared || false,
-            parents: ch.file.parents || ["root"],
+            parents: normalizedParents,
           });
           updatedCount++;
         }
@@ -511,7 +539,7 @@ export async function getFolderBreadcrumbs(
   accessToken?: string | null,
   accountIndex = 0
 ): Promise<BreadcrumbItem[]> {
-  if (!folderId || folderId === "root") {
+  if (!folderId || folderId === "root" || folderId === "0AAgz7sm0L0i1Uk9PVA") {
     return [{ id: "root", name: "My Drive" }];
   }
 
@@ -519,12 +547,18 @@ export async function getFolderBreadcrumbs(
   let currentId: string | undefined = folderId;
   let depth = 0;
 
-  while (currentId && currentId !== "root" && depth < 6) {
+  while (
+    currentId &&
+    currentId !== "root" &&
+    currentId !== "0AAgz7sm0L0i1Uk9PVA" &&
+    depth < 6
+  ) {
     const item = await getDriveItemById(currentId, accessToken, accountIndex);
     if (!item) break;
 
     // Stop if this is the Drive Root itself (e.g. named "My Drive" or has no parents)
     if (
+      item.id === "0AAgz7sm0L0i1Uk9PVA" ||
       item.name.toLowerCase() === "my drive" ||
       !item.parents ||
       item.parents.length === 0

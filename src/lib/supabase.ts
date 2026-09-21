@@ -207,8 +207,16 @@ function mapDriveFileToRow(
   defaultParentId = "root"
 ): any {
   const isFolder = f.mimeType === "application/vnd.google-apps.folder";
-  const parentId =
+  const rawParent =
     f.parents && f.parents.length > 0 ? f.parents[0] : defaultParentId;
+  const parentId =
+    rawParent === "0AAgz7sm0L0i1Uk9PVA" || rawParent === "root"
+      ? "root"
+      : rawParent;
+  const normalizedParents = (f.parents && f.parents.length > 0 ? f.parents : [parentId]).map(
+    (p) => (p === "0AAgz7sm0L0i1Uk9PVA" ? "root" : p)
+  );
+
   return {
     id: f.id,
     account_id: accountId,
@@ -217,7 +225,7 @@ function mapDriveFileToRow(
     is_folder: isFolder,
     size: f.size !== undefined && f.size !== null ? Number(f.size) : null,
     parent_id: parentId,
-    parents: f.parents && f.parents.length > 0 ? f.parents : [parentId],
+    parents: normalizedParents,
     thumbnail_link: f.thumbnailLink || null,
     web_view_link: f.webViewLink || null,
     web_content_link: f.webContentLink || null,
@@ -251,6 +259,9 @@ export async function getCachedFolderFilesFromSupabase(
     if (query && query.trim()) {
       // Fast ILIKE search
       builder = builder.ilike("name", `%${query.trim()}%`);
+    } else if (folderId === "root" || folderId === "0AAgz7sm0L0i1Uk9PVA") {
+      // Root items match both 'root' and Google Drive's root folder ID
+      builder = builder.in("parent_id", ["root", "0AAgz7sm0L0i1Uk9PVA"]);
     } else {
       // Query specific parent folder
       builder = builder.eq("parent_id", folderId);
@@ -276,7 +287,17 @@ export async function getCachedFolderFilesFromSupabase(
       return null;
     }
 
-    return data.map(mapRowToDriveFile);
+    // Ensure no root directory placeholder ("My Drive" folder) is returned as a child item
+    const validRows = data.filter(
+      (row: any) =>
+        !(
+          row.name?.toLowerCase() === "my drive" &&
+          row.is_folder &&
+          (row.parent_id === "root" || row.id === "0AAgz7sm0L0i1Uk9PVA")
+        )
+    );
+
+    return validRows.map(mapRowToDriveFile);
   } catch (err) {
     console.warn("[SupabaseCache] Unexpected query error:", err);
     return null;
@@ -323,7 +344,18 @@ export async function upsertFilesToSupabaseCache(
   if (!supabase || !accountId || !files || files.length === 0) return false;
 
   try {
-    const rows = files.map((f) =>
+    // Filter out the Drive root itself so it is never saved as a child item
+    const validFiles = files.filter(
+      (f) =>
+        !(
+          f.name?.toLowerCase() === "my drive" &&
+          f.mimeType === "application/vnd.google-apps.folder"
+        ) && f.id !== "0AAgz7sm0L0i1Uk9PVA"
+    );
+
+    if (validFiles.length === 0) return true;
+
+    const rows = validFiles.map((f) =>
       mapDriveFileToRow(f, accountId, defaultParentId)
     );
 

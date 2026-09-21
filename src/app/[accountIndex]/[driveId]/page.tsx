@@ -16,6 +16,14 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
   const accountIndex = parseInt(resolvedParams.accountIndex, 10) || 0;
   const driveId = decodeURIComponent(resolvedParams.driveId);
 
+  // If driveId is the root alias or root drive ID, redirect to home root route
+  if (
+    driveId === "root" ||
+    driveId === "0AAgz7sm0L0i1Uk9PVA"
+  ) {
+    redirect(`/${accountIndex}`);
+  }
+
   const accessToken = await getValidAccessTokenForAccount(accountIndex);
 
   // Look up item by Google Drive ID
@@ -24,6 +32,10 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
   const isFolder =
     item?.mimeType === "application/vnd.google-apps.folder" ||
     driveId.startsWith("folder-");
+
+  if (isFolder && item?.name?.toLowerCase() === "my drive") {
+    redirect(`/${accountIndex}`);
+  }
 
   if (!item) {
     return (
