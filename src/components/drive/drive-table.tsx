@@ -78,6 +78,9 @@ export function DriveTable({
     const isFolder = file.mimeType === "application/vnd.google-apps.folder";
     if (typeof window !== "undefined") {
       sessionStorage.setItem(`drive_type_${file.id}`, isFolder ? "folder" : "file");
+      if (isFolder) {
+        sessionStorage.setItem(`drive_folder_name_${file.id}`, file.name);
+      }
     }
     router.push(`/${accountIndex}/${file.id}${isFolder ? "?type=folder" : ""}`);
   };

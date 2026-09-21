@@ -26,13 +26,20 @@ export interface ServerStoreState {
   accounts: ServerAccount[];
 }
 
-// In-memory cache for warm lambda / serverless execution
+// In-memory cache for warm lambda / serverless execution with short TTL
 let memoryState: ServerStoreState = {
   loggedOut: false,
   loggedOutAt: 0,
   accounts: [],
 };
 let memoryStateLoaded = false;
+let memoryStateCacheTime = 0;
+const STATE_CACHE_TTL_MS = 15000; // 15 seconds cache for read operations
+
+export function invalidateServerStoreCache(): void {
+  memoryStateCacheTime = 0;
+  memoryStateLoaded = false;
+}
 
 function getStorageFilePaths(): string[] {
   const list: string[] = [];
@@ -176,6 +183,7 @@ async function persistStoreState(state: ServerStoreState): Promise<void> {
     accounts: Array.isArray(state.accounts) ? [...state.accounts] : [],
   };
   memoryStateLoaded = true;
+  memoryStateCacheTime = Date.now();
 
   // 1. Persist to Supabase Cloud Database (primary)
   try {
@@ -233,8 +241,8 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
 
   return {
     id: "env-primary-account",
-    name,
     email,
+    name,
     refreshToken,
     isPrimaryEnv: true,
   };
@@ -243,13 +251,19 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
 /**
  * Retrieve current store state (including loggedOut flag and timestamp)
  */
-export async function getServerStoreState(): Promise<ServerStoreState> {
+export async function getServerStoreState(forceRefresh = false): Promise<ServerStoreState> {
+  const now = Date.now();
+  if (!forceRefresh && memoryStateLoaded && (now - memoryStateCacheTime < STATE_CACHE_TTL_MS)) {
+    return memoryState;
+  }
+
   // 1. Try Supabase cloud database first (global cross-device authority)
   try {
     const supabaseState = await fetchStateFromSupabase();
     if (supabaseState) {
       memoryState = supabaseState;
       memoryStateLoaded = true;
+      memoryStateCacheTime = Date.now();
       return supabaseState;
     }
   } catch (err) {

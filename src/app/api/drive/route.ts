@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
     const folderId = searchParams.get("folderId") || "root";
     const accountIndexParam = searchParams.get("accountIndex") || "0";
     const accountIndex = parseInt(accountIndexParam, 10) || 0;
-    const forceMock = searchParams.get("demo") === "true";
+    const forceRefresh =
+      searchParams.get("refresh") === "true" ||
+      searchParams.get("demo") === "true";
 
     // 1. Authoritative check: if server store is in logged-out state or empty, reject immediately
     const serverState = await getServerStoreState();
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // If single item lookup requested
     if (itemId) {
-      const item = await getDriveItemById(itemId, accessToken, accountIndex);
+      const item = await getDriveItemById(itemId, accessToken, accountIndex, forceRefresh);
       if (!item) {
         return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
       }
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
       accessToken,
       folderId,
       accountIndex,
-      forceMock
+      forceRefresh
     );
 
     return NextResponse.json(driveData);

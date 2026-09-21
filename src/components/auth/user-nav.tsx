@@ -23,6 +23,7 @@ import { OAuthSetupDialog } from "./oauth-setup-dialog";
 import {
   removeAccountById,
   getActiveAccounts,
+  fetchCachedServerAccounts,
 } from "@/lib/account-store";
 import { GoogleAccount } from "@/types/drive";
 
@@ -39,13 +40,12 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
 
   // Fetch accounts from server-side store (multi-device & serverless persistent accounts)
   useEffect(() => {
-    const fetchAccounts = () => {
-      fetch("/api/auth/accounts")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data?.accounts && Array.isArray(data.accounts)) {
-            setServerAccounts(data.accounts);
-            if (data.accounts.length === 0) {
+    const fetchAccounts = (force = false) => {
+      fetchCachedServerAccounts(force)
+        .then((serverAccs) => {
+          if (Array.isArray(serverAccs)) {
+            setServerAccounts(serverAccs);
+            if (serverAccs.length === 0) {
               setAccounts([]);
             }
           }
@@ -53,14 +53,14 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
         .catch(() => {});
     };
 
-    fetchAccounts();
-    window.addEventListener("focus", fetchAccounts);
-    document.addEventListener("visibilitychange", fetchAccounts);
-    window.addEventListener("levidrive_accounts_changed", fetchAccounts);
+    fetchAccounts(false);
+    window.addEventListener("focus", () => fetchAccounts(false));
+    document.addEventListener("visibilitychange", () => fetchAccounts(false));
+    window.addEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     return () => {
-      window.removeEventListener("focus", fetchAccounts);
-      document.removeEventListener("visibilitychange", fetchAccounts);
-      window.removeEventListener("levidrive_accounts_changed", fetchAccounts);
+      window.removeEventListener("focus", () => fetchAccounts(false));
+      document.removeEventListener("visibilitychange", () => fetchAccounts(false));
+      window.removeEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     };
   }, []);
 

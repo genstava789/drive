@@ -51,13 +51,19 @@ export default function DriveItemLoading() {
   }, [driveId, typeParam]);
 
   if (isFolder) {
+    let folderDisplayName = "Memuat...";
+    if (typeof window !== "undefined" && driveId) {
+      const cachedName = sessionStorage.getItem(`drive_folder_name_${driveId}`);
+      if (cachedName) folderDisplayName = cachedName;
+    }
+
     return (
       <div className="w-full">
         <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
           <BreadcrumbNav
             breadcrumbs={[
               { id: "root", name: "My Drive" },
-              { id: "loading", name: "Memuat..." },
+              { id: driveId || "folder", name: folderDisplayName },
             ]}
             onNavigate={() => {}}
           />

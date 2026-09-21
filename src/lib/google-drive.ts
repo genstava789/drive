@@ -6,12 +6,40 @@ import {
   getServerStoreState,
 } from "./server-account-store";
 
+// Server-side in-memory cache for ultra-fast folder and item lookups
+interface CachedDriveResult {
+  data: DriveResponse;
+  timestamp: number;
+}
+const driveFolderCache = new Map<string, CachedDriveResult>();
+const FOLDER_CACHE_TTL_MS = 30000; // 30 seconds folder cache
+
+interface CachedItemResult {
+  data: DriveFile;
+  timestamp: number;
+}
+const driveItemCache = new Map<string, CachedItemResult>();
+const ITEM_CACHE_TTL_MS = 60000; // 60 seconds file detail cache
+
+export function clearServerDriveCache(): void {
+  driveFolderCache.clear();
+  driveItemCache.clear();
+}
+
 export async function getDriveFiles(
   accessToken?: string | null,
   folderId = "root",
   accountIndex = 0,
   forceMock = false
 ): Promise<DriveResponse> {
+  const cacheKey = `${accountIndex}:${folderId}`;
+  if (!forceMock) {
+    const cached = driveFolderCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < FOLDER_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
   const serverState = await getServerStoreState();
   if (serverState.loggedOut || !serverState.accounts || serverState.accounts.length === 0) {
     return {
@@ -116,7 +144,7 @@ export async function getDriveFiles(
       description: file.description,
     }));
 
-    return {
+    const result: DriveResponse = {
       files,
       nextPageToken: data.nextPageToken,
       currentFolderId: folderId,
@@ -124,6 +152,8 @@ export async function getDriveFiles(
       accountIndex,
       isAuthenticated: true,
     };
+    driveFolderCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (error) {
     console.error("Error fetching Google Drive files:", error);
     return {
@@ -140,9 +170,18 @@ export async function getDriveFiles(
 export async function getDriveItemById(
   id: string,
   accessToken?: string | null,
-  accountIndex = 0
+  accountIndex = 0,
+  forceRefresh = false
 ): Promise<DriveFile | null> {
   if (!id) return null;
+
+  const itemCacheKey = `${accountIndex}:${id}`;
+  if (!forceRefresh) {
+    const cached = driveItemCache.get(itemCacheKey);
+    if (cached && Date.now() - cached.timestamp < ITEM_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
 
   let effectiveToken = accessToken;
   if (!effectiveToken) {
@@ -179,7 +218,7 @@ export async function getDriveItemById(
 
       if (response.ok) {
         const file = await response.json();
-        return {
+        const itemResult: DriveFile = {
           id: file.id,
           name: file.name,
           mimeType: file.mimeType,
@@ -200,6 +239,8 @@ export async function getDriveItemById(
           parents: file.parents,
           description: file.description,
         };
+        driveItemCache.set(itemCacheKey, { data: itemResult, timestamp: Date.now() });
+        return itemResult;
       }
     } catch (e) {
       console.warn("Failed to fetch item from Drive API:", e);

@@ -134,14 +134,18 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
     <div className="w-full space-y-3">
       {/* Top Breadcrumb & Back Navigation - Compact & Mobile First */}
       <div className="flex items-center gap-2 px-0.5">
-        <Link href={`/${accountIndex}`}>
-          <button className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0">
-            <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </button>
+        <Link
+          href={`/${accountIndex}`}
+          prefetch={true}
+          className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
+          title="Kembali ke My Drive"
+        >
+          <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Link>
         <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
           <Link
             href={`/${accountIndex}`}
+            prefetch={true}
             className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
           >
             My Drive

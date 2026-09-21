@@ -4,6 +4,43 @@ import { GoogleAccount } from "@/types/drive";
 
 const REMOVED_ACCOUNTS_KEY = "levidrive_removed_accounts";
 
+let cachedServerAccounts: GoogleAccount[] = [];
+let cachedServerAccountsTime = 0;
+let inflightServerAccountsPromise: Promise<GoogleAccount[]> | null = null;
+const CLIENT_ACCOUNTS_TTL_MS = 10000; // 10 seconds client cache
+
+export function invalidateClientAccountsCache() {
+  cachedServerAccounts = [];
+  cachedServerAccountsTime = 0;
+}
+
+export async function fetchCachedServerAccounts(force = false): Promise<GoogleAccount[]> {
+  const now = Date.now();
+  if (!force && cachedServerAccounts.length > 0 && now - cachedServerAccountsTime < CLIENT_ACCOUNTS_TTL_MS) {
+    return cachedServerAccounts;
+  }
+  if (inflightServerAccountsPromise) {
+    return inflightServerAccountsPromise;
+  }
+  inflightServerAccountsPromise = (async () => {
+    try {
+      const res = await fetch("/api/auth/accounts");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.accounts)) {
+          cachedServerAccounts = data.accounts;
+          cachedServerAccountsTime = Date.now();
+          return data.accounts;
+        }
+      }
+    } catch (_) {}
+    return cachedServerAccounts;
+  })().finally(() => {
+    inflightServerAccountsPromise = null;
+  });
+  return inflightServerAccountsPromise;
+}
+
 export function getStoredRemovedAccountIds(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -17,6 +54,7 @@ export function getStoredRemovedAccountIds(): string[] {
 export function removeAccountById(accountId: string) {
   if (typeof window === "undefined") return;
   try {
+    invalidateClientAccountsCache();
     const current = getStoredRemovedAccountIds();
     if (!current.includes(accountId)) {
       current.push(accountId);
@@ -31,6 +69,7 @@ export function removeAccountById(accountId: string) {
 export function restoreAllAccounts() {
   if (typeof window === "undefined") return;
   try {
+    invalidateClientAccountsCache();
     localStorage.removeItem(REMOVED_ACCOUNTS_KEY);
     window.dispatchEvent(new Event("levidrive_accounts_changed"));
   } catch (err) {

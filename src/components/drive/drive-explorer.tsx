@@ -11,8 +11,16 @@ import { DriveGrid } from "./drive-grid";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
-import { getActiveAccounts } from "@/lib/account-store";
+import { getActiveAccounts, fetchCachedServerAccounts } from "@/lib/account-store";
 import { DriveTableSkeleton } from "./drive-table-skeleton";
+
+interface ClientFolderCacheEntry {
+  files: DriveFile[];
+  currentFolderName?: string;
+  timestamp: number;
+}
+const clientFolderCache = new Map<string, ClientFolderCacheEntry>();
+const CLIENT_CACHE_TTL_MS = 60000; // 60 seconds client cache
 
 interface DriveExplorerProps {
   accountIndex?: number;
@@ -28,12 +36,31 @@ export function DriveExplorer({
   const router = useRouter();
   const { data: session } = useSession();
 
-  const [files, setFiles] = useState<DriveFile[]>([]);
+  const cacheKey = `${accountIndex}_${initialFolderId}`;
+  const initialCached = clientFolderCache.get(cacheKey);
+  const isInitialCachedFresh =
+    initialCached && Date.now() - initialCached.timestamp < CLIENT_CACHE_TTL_MS;
+
+  const [files, setFiles] = useState<DriveFile[]>(() => {
+    return isInitialCachedFresh ? initialCached.files : [];
+  });
   const [currentFolderId, setCurrentFolderId] = useState<string>(initialFolderId);
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
-    { id: "root", name: "My Drive" },
-  ]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>(() => {
+    if (initialFolderId && initialFolderId !== "root") {
+      let name = initialFolderName;
+      if (!name && typeof window !== "undefined") {
+        name = sessionStorage.getItem(`drive_folder_name_${initialFolderId}`) || "";
+      }
+      return [
+        { id: "root", name: "My Drive" },
+        { id: initialFolderId, name: name || "Memuat..." },
+      ];
+    }
+    return [{ id: "root", name: "My Drive" }];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    return !isInitialCachedFresh;
+  });
   const [isMockData, setIsMockData] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasNoAccount, setHasNoAccount] = useState<boolean>(false);
@@ -47,14 +74,29 @@ export function DriveExplorer({
 
   // Fetch Drive items from API
   const fetchFiles = useCallback(
-    async (folderId: string) => {
-      setIsLoading(true);
+    async (folderId: string, isManualRefresh = false) => {
+      const activeCacheKey = `${accountIndex}_${folderId}`;
+      const cached = clientFolderCache.get(activeCacheKey);
+      const isFresh =
+        cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+      // If fresh cache exists and not manual refresh, use it immediately
+      if (isFresh && !isManualRefresh) {
+        setFiles(cached.files);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!cached || isManualRefresh) {
+        setIsLoading(true);
+      }
+
       setError(null);
       try {
         const res = await fetch(
           `/api/drive?folderId=${encodeURIComponent(
             folderId
-          )}&accountIndex=${accountIndex}`
+          )}&accountIndex=${accountIndex}${isManualRefresh ? "&refresh=true" : ""}`
         );
         if (!res.ok) {
           throw new Error(`Gagal memuat berkas: ${res.statusText}`);
@@ -68,13 +110,24 @@ export function DriveExplorer({
         if (data.isAuthenticated === false) {
           setHasNoAccount(true);
           setFiles([]);
+          clientFolderCache.delete(activeCacheKey);
         } else {
           setHasNoAccount(false);
+          clientFolderCache.set(activeCacheKey, {
+            files: incomingFiles,
+            currentFolderName: data.currentFolderName,
+            timestamp: Date.now(),
+          });
         }
 
         if (folderId !== "root") {
-          const folderName =
-            data.currentFolderName || initialFolderName || folderId;
+          let folderName =
+            data.currentFolderName || initialFolderName;
+          if (!folderName && typeof window !== "undefined") {
+            folderName =
+              sessionStorage.getItem(`drive_folder_name_${folderId}`) || "";
+          }
+          folderName = folderName || folderId;
           setBreadcrumbs([
             { id: "root", name: "My Drive" },
             { id: folderId, name: folderName },
@@ -85,7 +138,7 @@ export function DriveExplorer({
       } catch (err: any) {
         console.error("Fetch error:", err);
         setError(err.message || "Terjadi kesalahan saat memuat berkas");
-        setFiles([]);
+        if (!cached) setFiles([]);
       } finally {
         setIsLoading(false);
       }
@@ -103,14 +156,8 @@ export function DriveExplorer({
     const checkAccounts = async (isExplicitEvent = false) => {
       let currentServerAccounts: GoogleAccount[] = [];
       try {
-        const res = await fetch("/api/auth/accounts");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data?.accounts)) {
-            currentServerAccounts = data.accounts;
-            if (isMounted) setServerAccounts(currentServerAccounts);
-          }
-        }
+        currentServerAccounts = await fetchCachedServerAccounts(isExplicitEvent);
+        if (isMounted) setServerAccounts(currentServerAccounts);
       } catch (_) {}
 
       if (!isMounted) return;
@@ -120,9 +167,10 @@ export function DriveExplorer({
         if (active.length === 0) {
           setHasNoAccount(true);
           setFiles([]);
+          clientFolderCache.clear();
         } else {
           setHasNoAccount(false);
-          fetchFiles(currentFolderId);
+          fetchFiles(currentFolderId, true);
         }
       } else {
         if (active.length > 0 && accountIndex >= active.length) {
@@ -132,7 +180,10 @@ export function DriveExplorer({
     };
 
     checkAccounts(false);
-    const onAccountsChanged = () => checkAccounts(true);
+    const onAccountsChanged = () => {
+      clientFolderCache.clear();
+      checkAccounts(true);
+    };
     window.addEventListener("levidrive_accounts_changed", onAccountsChanged);
     window.addEventListener("focus", onAccountsChanged);
     document.addEventListener("visibilitychange", onAccountsChanged);
@@ -197,7 +248,7 @@ export function DriveExplorer({
           onCategoryChange={setSelectedCategory}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onRefresh={() => fetchFiles(currentFolderId)}
+          onRefresh={() => fetchFiles(currentFolderId, true)}
           isLoading={isLoading}
           isMockData={isMockData}
         />

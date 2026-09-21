@@ -13,7 +13,7 @@ export function FileDetailSkeleton({ accountIndex = 0 }: FileDetailSkeletonProps
     <div className="w-full space-y-3 animate-pulse">
       {/* Top Breadcrumb & Back Navigation */}
       <div className="flex items-center gap-2 px-0.5">
-        <Link href={`/${accountIndex}`}>
+        <Link href={`/${accountIndex}`} prefetch={true}>
           <div className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-2xs">
             <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </div>
@@ -21,6 +21,7 @@ export function FileDetailSkeleton({ accountIndex = 0 }: FileDetailSkeletonProps
         <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
           <Link
             href={`/${accountIndex}`}
+            prefetch={true}
             className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
           >
             My Drive
