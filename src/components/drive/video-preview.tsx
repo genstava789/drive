@@ -71,60 +71,25 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
     : null;
 
   // 1. COLLAPSED STATE (Default):
-  // Clean UI Card with Play Icon and Open Video button (No broken image preview)
+  // Clean UI Card with Play Icon and Large "Open Video" Title only
   if (!isOpen) {
     return (
       <div
         onClick={() => setIsOpen(true)}
-        className="w-full rounded-xl border border-blue-100/90 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50/80 p-3.5 sm:p-4.5 shadow-2xs hover:shadow-xs hover:border-blue-300 transition-all cursor-pointer flex items-center justify-between gap-3 sm:gap-4 select-none group"
+        className="w-full rounded-xl sm:rounded-2xl border border-blue-100/90 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50/80 p-4 sm:p-5 sm:px-6 shadow-2xs hover:shadow-xs hover:border-blue-300 transition-all cursor-pointer flex items-center gap-3.5 sm:gap-4.5 select-none group"
         title="Klik untuk membuka pemutar video"
       >
-        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
-          {/* Play Icon */}
-          <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 group-hover:bg-blue-700 transition-all shrink-0">
-            <Play className="h-5 w-5 sm:h-5.5 sm:w-5.5 fill-white ml-0.5" />
-          </div>
-
-          {/* Title & Format Info */}
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-blue-600 transition-colors">
-                Open Video Player
-              </h3>
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0 font-mono border-blue-200 text-blue-700 bg-white shadow-2xs"
-              >
-                {videoFormat}
-              </Badge>
-              {resolution && (
-                <Badge
-                  variant="info"
-                  className="text-[10px] px-1.5 py-0 font-semibold"
-                >
-                  {resolution}
-                </Badge>
-              )}
-              {file.size ? (
-                <span className="text-[10px] font-mono text-slate-500">
-                  {formatBytes(file.size)}
-                </span>
-              ) : null}
-            </div>
-            <p className="text-[11px] text-slate-500 truncate">
-              Klik untuk memutar video ini secara langsung dengan Vidstack
-            </p>
-          </div>
+        {/* Play Icon */}
+        <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl sm:rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 group-hover:bg-blue-700 transition-all shrink-0">
+          <Play className="h-5.5 w-5.5 sm:h-6.5 sm:w-6.5 fill-white ml-0.5" />
         </div>
 
-        {/* Action Button */}
-        <Button
-          size="sm"
-          className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg sm:rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 group-hover:shadow-md transition-all cursor-pointer"
-        >
-          <Play className="h-3.5 w-3.5 fill-white" />
-          <span>Open Video</span>
-        </Button>
+        {/* Large "Open Video" Title filling the card space */}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-slate-900 text-base sm:text-lg md:text-xl tracking-tight group-hover:text-blue-600 transition-colors">
+            Open Video
+          </h3>
+        </div>
       </div>
     );
   }
