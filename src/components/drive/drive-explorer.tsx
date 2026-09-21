@@ -19,6 +19,7 @@ import {
   recordFolderNavigation,
 } from "@/lib/breadcrumbs";
 import { DriveTableSkeleton } from "./drive-table-skeleton";
+import { FileDetailSkeleton } from "./file-detail-skeleton";
 
 interface ClientFolderCacheEntry {
   files: DriveFile[];
@@ -84,6 +85,7 @@ export function DriveExplorer({
   const [selectedCategory, setSelectedCategory] =
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [navigatingFileId, setNavigatingFileId] = useState<string | null>(null);
 
   // Fetch Drive items from API
   const fetchFiles = useCallback(
@@ -357,6 +359,30 @@ export function DriveExplorer({
     [accountIndex, breadcrumbs, fetchFiles]
   );
 
+  // Instant optimistic file navigation: immediately renders FileDetailSkeleton in 0ms!
+  const handleFileClick = useCallback(
+    (file: DriveFile) => {
+      setNavigatingFileId(file.id);
+
+      const parentId =
+        breadcrumbs?.[breadcrumbs.length - 1]?.id || "root";
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("drive_navigating_id", file.id);
+        sessionStorage.setItem("drive_navigating_type", "file");
+        sessionStorage.setItem(`drive_type_${file.id}`, "file");
+        sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
+        sessionStorage.setItem(
+          `drive_breadcrumbs_${file.id}`,
+          JSON.stringify(breadcrumbs || [{ id: "root", name: "My Drive" }])
+        );
+      }
+
+      router.push(`/${accountIndex}/file/${file.id}`);
+    },
+    [accountIndex, breadcrumbs, router]
+  );
+
   // Navigate using breadcrumb instantly
   const handleBreadcrumbNavigate = useCallback(
     (folderId: string, index: number) => {
@@ -493,6 +519,17 @@ export function DriveExplorer({
 
   const isFiltered = selectedCategory !== "all" || Boolean(searchQuery.trim());
 
+  if (navigatingFileId) {
+    return (
+      <div className="w-full">
+        <FileDetailSkeleton
+          accountIndex={accountIndex}
+          driveId={navigatingFileId}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       {/* Explorer Main Content Card */}
@@ -561,6 +598,7 @@ export function DriveExplorer({
             hasNoAccount={hasNoAccount}
             currentBreadcrumbs={breadcrumbs}
             onFolderClick={handleFolderClick}
+            onFileClick={handleFileClick}
             onPrefetchFolder={prefetchFolder}
           />
         ) : (
@@ -573,6 +611,7 @@ export function DriveExplorer({
             hasNoAccount={hasNoAccount}
             currentBreadcrumbs={breadcrumbs}
             onFolderClick={handleFolderClick}
+            onFileClick={handleFileClick}
             onPrefetchFolder={prefetchFolder}
           />
         )}

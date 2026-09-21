@@ -64,6 +64,7 @@ interface DriveTableProps {
   hasNoAccount?: boolean;
   currentBreadcrumbs?: BreadcrumbItem[];
   onFolderClick?: (folder: { id: string; name: string }) => void;
+  onFileClick?: (file: DriveFile) => void;
   onPrefetchFolder?: (folderId: string) => void;
 }
 
@@ -75,6 +76,7 @@ export function DriveTable({
   hasNoAccount = false,
   currentBreadcrumbs,
   onFolderClick,
+  onFileClick,
   onPrefetchFolder,
 }: DriveTableProps) {
   const router = useRouter();
@@ -106,17 +108,21 @@ export function DriveTable({
         router.push(`/${accountIndex}/${file.id}?type=folder`);
       }
     } else {
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("drive_navigating_id", file.id);
-        sessionStorage.setItem("drive_navigating_type", "file");
-        sessionStorage.setItem(`drive_type_${file.id}`, "file");
-        sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
-        sessionStorage.setItem(
-          `drive_breadcrumbs_${file.id}`,
-          JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
-        );
+      if (onFileClick) {
+        onFileClick(file);
+      } else {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("drive_navigating_id", file.id);
+          sessionStorage.setItem("drive_navigating_type", "file");
+          sessionStorage.setItem(`drive_type_${file.id}`, "file");
+          sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
+          sessionStorage.setItem(
+            `drive_breadcrumbs_${file.id}`,
+            JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
+          );
+        }
+        router.push(`/${accountIndex}/file/${file.id}`);
       }
-      router.push(`/${accountIndex}/file/${file.id}`);
     }
   };
 
