@@ -132,3 +132,22 @@ export function getFileCategory(mimeType: string, fileName?: string): string {
 
   return "file";
 }
+
+/**
+ * Generate download URL pointing to Cloudflare Worker (if configured),
+ * or fallback to direct Google Drive export download URL.
+ */
+export function getDownloadUrl(fileId: string, fileName?: string): string {
+  const workerBaseUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL?.replace(/\/+$/, "");
+
+  if (workerBaseUrl) {
+    const params = new URLSearchParams({ id: fileId });
+    if (fileName) {
+      params.set("name", fileName);
+    }
+    return `${workerBaseUrl}/download?${params.toString()}`;
+  }
+
+  // Safe fallback to direct Google Drive download URL
+  return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+}

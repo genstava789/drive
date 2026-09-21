@@ -8,7 +8,7 @@ import { DriveFile } from "@/types/drive";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileTypeIcon } from "./file-type-icon";
-import { formatBytes, formatDate, getFileCategory } from "@/lib/utils";
+import { formatBytes, formatDate, getFileCategory, getDownloadUrl } from "@/lib/utils";
 import {
   ExternalLink,
   Copy,
@@ -53,9 +53,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
     file.name.toLowerCase().endsWith(".md") ||
     file.name.toLowerCase().endsWith(".markdown");
 
-  const downloadUrl =
-    file.webContentLink ||
-    `https://drive.google.com/uc?export=download&id=${file.id}`;
+  const downloadUrl = getDownloadUrl(file.id, file.name);
 
   const imageSrc = file.thumbnailLink || file.webViewLink || "";
 
@@ -174,14 +172,32 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             </div>
           </div>
 
-          {/* Quick Actions (Open Drive, Copy Download URL, Lightbox) */}
+          {/* Quick Actions (Download, Copy URL, Open Drive) */}
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
-            {/* Copy Download URL Button */}
+            {/* Direct Download Button via Cloudflare Worker */}
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              download={file.name}
+              className="flex-1 sm:flex-initial inline-flex"
+            >
+              <Button
+                size="sm"
+                className="w-full h-8 px-3 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium">Download</span>
+              </Button>
+            </a>
+
+            {/* Copy Cloudflare Worker Download URL Button */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => copyToClipboard(downloadUrl, "downloadUrl")}
-              className="flex-1 sm:flex-initial h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs"
+              className="flex-1 sm:flex-initial h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer"
+              title="Salin URL Unduh (Cloudflare Worker)"
             >
               {copiedField === "downloadUrl" ? (
                 <>
@@ -192,8 +208,8 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
                 </>
               ) : (
                 <>
-                  <Download className="h-3.5 w-3.5 text-slate-500" />
-                  <span className="text-[11px]">Salin URL Unduh</span>
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="text-[11px]">Salin URL</span>
                 </>
               )}
             </Button>
@@ -207,10 +223,11 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
                 className="flex-1 sm:flex-initial inline-flex"
               >
                 <Button
+                  variant="outline"
                   size="sm"
-                  className="w-full h-8 px-3 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs"
+                  className="w-full h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg shadow-2xs cursor-pointer"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
                   <span className="text-[11px]">Buka di Drive</span>
                 </Button>
               </a>

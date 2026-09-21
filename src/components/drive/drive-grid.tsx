@@ -4,8 +4,8 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { DriveFile } from "@/types/drive";
 import { FileTypeIcon } from "./file-type-icon";
-import { formatBytes, getFileCategory } from "@/lib/utils";
-import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn, FileQuestion } from "lucide-react";
+import { formatBytes, getFileCategory, getDownloadUrl } from "@/lib/utils";
+import { Folder, MoreVertical, ExternalLink, Eye, Users, LogIn, FileQuestion, Download, Copy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -216,6 +216,26 @@ export function DriveGrid({
                               </a>
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem asChild>
+                            <a
+                              href={getDownloadUrl(file.id, file.name)}
+                              target="_blank"
+                              rel="noreferrer"
+                              download={file.name}
+                              className="flex items-center"
+                            >
+                              <Download className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                              Download
+                            </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              navigator.clipboard.writeText(getDownloadUrl(file.id, file.name));
+                            }}
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-2 text-slate-500" />
+                            Salin URL Unduh
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

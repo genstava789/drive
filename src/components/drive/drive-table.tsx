@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileTypeIcon } from "./file-type-icon";
-import { formatBytes, formatDate, getFileCategory } from "@/lib/utils";
+import { formatBytes, formatDate, getFileCategory, getDownloadUrl } from "@/lib/utils";
 import {
   ArrowUpDown,
   ArrowUp,
@@ -33,6 +33,7 @@ import {
   MoreVertical,
   Eye,
   Copy,
+  Download,
   ChevronLeft,
   ChevronRight,
   Folder,
@@ -365,15 +366,29 @@ export function DriveTable({
                       </a>
                     </DropdownMenuItem>
                   )}
-                  {file.webContentLink && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        navigator.clipboard.writeText(file.webContentLink!);
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                      Salin URL Unduh
-                    </DropdownMenuItem>
+                  {!isFolder && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <a
+                          href={getDownloadUrl(file.id, file.name)}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={file.name}
+                          className="flex items-center"
+                        >
+                          <Download className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                          Download
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          navigator.clipboard.writeText(getDownloadUrl(file.id, file.name));
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-2 text-slate-500" />
+                        Salin URL Unduh
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
