@@ -144,12 +144,21 @@ export function DriveExplorer({
     };
   }, [session, accountIndex, router, currentFolderId, fetchFiles]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && initialFolderId && initialFolderId !== "root") {
+      sessionStorage.setItem(`drive_type_${initialFolderId}`, "folder");
+    }
+  }, [initialFolderId]);
+
   // Navigate using breadcrumb
   const handleBreadcrumbNavigate = (folderId: string, index: number) => {
     if (folderId === "root") {
       router.push(`/${accountIndex}`);
     } else {
-      router.push(`/${accountIndex}/${folderId}`);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(`drive_type_${folderId}`, "folder");
+      }
+      router.push(`/${accountIndex}/${folderId}?type=folder`);
     }
   };
 

@@ -1,65 +1,109 @@
 "use client";
 
 import React from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 
-export function FileDetailSkeleton() {
+interface FileDetailSkeletonProps {
+  accountIndex?: number;
+}
+
+export function FileDetailSkeleton({ accountIndex = 0 }: FileDetailSkeletonProps) {
   return (
-    <div className="w-full space-y-3 animate-in fade-in duration-200">
-      {/* Top Breadcrumb - real text, no skeleton */}
+    <div className="w-full space-y-3 animate-pulse">
+      {/* Top Breadcrumb & Back Navigation */}
       <div className="flex items-center gap-2 px-0.5">
-        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-2xs">
-          <ArrowLeft className="h-3.5 w-3.5" />
-        </div>
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700">
-          <span>My Drive</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-slate-400 font-medium">Memuat berkas...</span>
+        <Link href={`/${accountIndex}`}>
+          <div className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-2xs">
+            <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </div>
+        </Link>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
+          <Link
+            href={`/${accountIndex}`}
+            className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
+          >
+            My Drive
+          </Link>
+          <span className="shrink-0">/</span>
+          <div className="h-4 w-32 sm:w-48 bg-slate-200 rounded animate-pulse" />
         </div>
       </div>
 
-      {/* Main Card Skeleton */}
-      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-5 w-56 sm:w-80 rounded" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-4 w-16 rounded-full" />
-                <Skeleton className="h-4 w-20 rounded-full" />
-              </div>
+      {/* Main File Card Skeleton */}
+      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4 overflow-hidden w-full max-w-full">
+        {/* Header with Icon, Title, and Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100 min-w-0 w-full">
+          <div className="flex items-start gap-2.5 min-w-0 w-full sm:w-auto flex-1">
+            {/* File Icon placeholder */}
+            <div className="h-7 w-7 rounded-lg bg-slate-200 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1 space-y-2">
+              {/* File Title skeleton */}
+              <div className="h-5 w-44 sm:w-72 bg-slate-200 rounded" />
+              {/* Size badge skeleton */}
+              <div className="h-4 w-16 bg-slate-100 border border-slate-200/60 rounded-full" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-24 rounded-lg" />
-            <Skeleton className="h-8 w-24 rounded-lg" />
+
+          {/* Quick Actions (Download, Open Drive) */}
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
+            {/* Download Button skeleton */}
+            <div className="flex-1 sm:flex-initial h-8 px-3 rounded-lg bg-blue-600/20 border border-blue-600/30 flex items-center justify-center gap-1.5 min-w-[95px]">
+              <Download className="h-3.5 w-3.5 text-blue-500/70" />
+              <div className="h-3 w-12 bg-blue-500/30 rounded" />
+            </div>
+
+            {/* Open Drive Button skeleton */}
+            <div className="flex-1 sm:flex-initial h-8 px-2.5 rounded-lg border border-slate-200 bg-slate-50/80 flex items-center justify-center gap-1.5 min-w-[95px]">
+              <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+              <div className="h-3 w-14 bg-slate-300/70 rounded" />
+            </div>
           </div>
         </div>
 
-        {/* Preview Area Skeleton */}
-        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-6 flex flex-col items-center justify-center min-h-64 space-y-3">
-          <Skeleton className="h-14 w-14 rounded-2xl" />
-          <Skeleton className="h-4 w-48 rounded" />
-          <Skeleton className="h-3 w-32 rounded" />
+        {/* Media / Preview Box Placeholder */}
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 h-44 sm:h-60 flex flex-col items-center justify-center p-4 gap-2.5">
+          <div className="h-10 w-10 rounded-full bg-slate-200/80 flex items-center justify-center" />
+          <div className="h-3 w-32 bg-slate-200 rounded" />
         </div>
 
         {/* Metadata Rows Skeleton */}
-        <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden w-full">
+          {[
+            { labelW: "w-20", valW: "w-40 sm:w-60" },
+            { labelW: "w-16", valW: "w-32 sm:w-48" },
+            { labelW: "w-24", valW: "w-24 sm:w-36" },
+            { labelW: "w-22", valW: "w-28 sm:w-40" },
+            { labelW: "w-24", valW: "w-28 sm:w-40" },
+            { labelW: "w-18", valW: "w-36 sm:w-52" },
+            { labelW: "w-14", valW: "w-20 sm:w-28" },
+          ].map((row, idx) => (
             <div
-              key={i}
-              className="flex items-center justify-between p-2.5 sm:px-3.5"
+              key={idx}
+              className="flex items-center justify-between p-2.5 sm:px-3.5 gap-2"
             >
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-3.5 w-3.5 rounded" />
-                <Skeleton className="h-3.5 w-24 rounded" />
+              <div className="flex items-center gap-2 shrink-0 min-w-[95px] sm:min-w-[140px]">
+                <div className="h-3.5 w-3.5 rounded bg-slate-200 shrink-0" />
+                <div className={`h-3.5 ${row.labelW} bg-slate-200 rounded`} />
               </div>
-              <Skeleton className="h-3.5 w-36 rounded" />
+              <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
+                <div className={`h-3.5 ${row.valW} bg-slate-200/80 rounded`} />
+                <div className="h-6 w-6 rounded-md bg-slate-200/60 shrink-0" />
+              </div>
             </div>
           ))}
+        </div>
+
+        {/* Direct Download URL Card Skeleton */}
+        <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-2 overflow-hidden w-full">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Download className="h-3.5 w-3.5 text-blue-500/70 shrink-0" />
+              <div className="h-3.5 w-36 bg-blue-200/70 rounded" />
+            </div>
+            <div className="h-3 w-16 bg-blue-200/60 rounded" />
+          </div>
+          <div className="w-full h-8 rounded-md border border-blue-100/80 bg-white/90 p-2" />
         </div>
       </div>
     </div>

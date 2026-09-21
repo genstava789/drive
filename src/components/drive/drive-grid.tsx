@@ -33,7 +33,11 @@ export function DriveGrid({
   const router = useRouter();
 
   const handleItemClick = (file: DriveFile) => {
-    router.push(`/${accountIndex}/${file.id}`);
+    const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(`drive_type_${file.id}`, isFolder ? "folder" : "file");
+    }
+    router.push(`/${accountIndex}/${file.id}${isFolder ? "?type=folder" : ""}`);
   };
 
   const searchedFiles = React.useMemo(() => {

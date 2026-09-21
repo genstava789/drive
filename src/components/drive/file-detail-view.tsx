@@ -36,6 +36,12 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && file?.id) {
+      sessionStorage.setItem(`drive_type_${file.id}`, "file");
+    }
+  }, [file?.id]);
+
   const category = getFileCategory(file.mimeType, file.name);
   const isImage =
     category === "image" ||
