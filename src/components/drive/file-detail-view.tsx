@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileTypeIcon } from "./file-type-icon";
 import { formatBytes, formatDate, getFileCategory, getDownloadUrl } from "@/lib/utils";
+import { getStoredBreadcrumbs } from "@/lib/breadcrumbs";
 import {
   ExternalLink,
   Copy,
@@ -130,26 +131,61 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
     },
   ];
 
+  const parentBreadcrumbs = React.useMemo(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem(`drive_breadcrumbs_${file.id}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (_) {}
+      }
+      const parentId = sessionStorage.getItem(`drive_parent_${file.id}`);
+      if (parentId && parentId !== "root") {
+        return getStoredBreadcrumbs(parentId);
+      }
+    }
+    return [{ id: "root", name: "My Drive" }];
+  }, [file.id]);
+
+  const parentFolder = parentBreadcrumbs[parentBreadcrumbs.length - 1];
+  const backUrl =
+    parentFolder && parentFolder.id !== "root"
+      ? `/${accountIndex}/${parentFolder.id}?type=folder`
+      : `/${accountIndex}`;
+
   return (
     <div className="w-full space-y-3">
       {/* Top Breadcrumb & Back Navigation - Compact & Mobile First */}
       <div className="flex items-center gap-2 px-0.5">
         <Link
-          href={`/${accountIndex}`}
+          href={backUrl}
           prefetch={true}
           className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
-          title="Kembali ke My Drive"
+          title={`Kembali ke ${parentFolder?.name || "My Drive"}`}
         >
           <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Link>
         <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
-          <Link
-            href={`/${accountIndex}`}
-            prefetch={true}
-            className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
-          >
-            My Drive
-          </Link>
+          {parentBreadcrumbs.map((crumb, idx) => {
+            const isRoot = crumb.id === "root";
+            const crumbUrl = isRoot
+              ? `/${accountIndex}`
+              : `/${accountIndex}/${crumb.id}?type=folder`;
+
+            return (
+              <React.Fragment key={crumb.id}>
+                {idx > 0 && <span className="shrink-0">/</span>}
+                <Link
+                  href={crumbUrl}
+                  prefetch={true}
+                  className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
+                >
+                  {crumb.name}
+                </Link>
+              </React.Fragment>
+            );
+          })}
           <span className="shrink-0">/</span>
           <span
             className="font-semibold text-slate-900 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"

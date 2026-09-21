@@ -12,6 +12,11 @@ import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { getActiveAccounts, fetchCachedServerAccounts } from "@/lib/account-store";
+import {
+  getStoredBreadcrumbs,
+  saveBreadcrumbsForFolder,
+  appendBreadcrumb,
+} from "@/lib/breadcrumbs";
 import { DriveTableSkeleton } from "./drive-table-skeleton";
 
 interface ClientFolderCacheEntry {
@@ -47,13 +52,17 @@ export function DriveExplorer({
   const [currentFolderId, setCurrentFolderId] = useState<string>(initialFolderId);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>(() => {
     if (initialFolderId && initialFolderId !== "root") {
-      let name = initialFolderName;
-      if (!name && typeof window !== "undefined") {
-        name = sessionStorage.getItem(`drive_folder_name_${initialFolderId}`) || "";
+      const stored = getStoredBreadcrumbs(initialFolderId, initialFolderName);
+      if (stored && stored.length > 0) {
+        if (initialFolderName) {
+          stored[stored.length - 1].name = initialFolderName;
+          saveBreadcrumbsForFolder(initialFolderId, stored);
+        }
+        return stored;
       }
       return [
         { id: "root", name: "My Drive" },
-        { id: initialFolderId, name: name || "Memuat..." },
+        { id: initialFolderId, name: initialFolderName || "Folder" },
       ];
     }
     return [{ id: "root", name: "My Drive" }];
@@ -121,17 +130,38 @@ export function DriveExplorer({
         }
 
         if (folderId !== "root") {
-          let folderName =
-            data.currentFolderName || initialFolderName;
-          if (!folderName && typeof window !== "undefined") {
-            folderName =
-              sessionStorage.getItem(`drive_folder_name_${folderId}`) || "";
-          }
-          folderName = folderName || folderId;
-          setBreadcrumbs([
-            { id: "root", name: "My Drive" },
-            { id: folderId, name: folderName },
-          ]);
+          setBreadcrumbs((prev) => {
+            const stored = getStoredBreadcrumbs(
+              folderId,
+              data.currentFolderName || initialFolderName
+            );
+            if (stored && stored.length > 0) {
+              if (data.currentFolderName) {
+                stored[stored.length - 1].name = data.currentFolderName;
+                saveBreadcrumbsForFolder(folderId, stored);
+              }
+              return stored;
+            }
+
+            const existingIdx = prev.findIndex((b) => b.id === folderId);
+            if (existingIdx !== -1) {
+              const sliced = prev.slice(0, existingIdx + 1);
+              if (data.currentFolderName) {
+                sliced[sliced.length - 1].name = data.currentFolderName;
+              }
+              saveBreadcrumbsForFolder(folderId, sliced);
+              return sliced;
+            }
+
+            const folderName =
+              data.currentFolderName || initialFolderName || folderId;
+            const appended = appendBreadcrumb(prev, {
+              id: folderId,
+              name: folderName,
+            });
+            saveBreadcrumbsForFolder(folderId, appended);
+            return appended;
+          });
         } else {
           setBreadcrumbs([{ id: "root", name: "My Drive" }]);
         }
@@ -204,8 +234,11 @@ export function DriveExplorer({
   // Navigate using breadcrumb
   const handleBreadcrumbNavigate = (folderId: string, index: number) => {
     if (folderId === "root") {
+      saveBreadcrumbsForFolder("root", [{ id: "root", name: "My Drive" }]);
       router.push(`/${accountIndex}`);
     } else {
+      const sliced = breadcrumbs.slice(0, index + 1);
+      saveBreadcrumbsForFolder(folderId, sliced);
       if (typeof window !== "undefined") {
         sessionStorage.setItem(`drive_type_${folderId}`, "folder");
       }
@@ -272,6 +305,7 @@ export function DriveExplorer({
             searchQuery={searchQuery}
             isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
+            currentBreadcrumbs={breadcrumbs}
           />
         ) : (
           /* Visual Grid View with Route Navigation */
@@ -281,6 +315,7 @@ export function DriveExplorer({
             searchQuery={searchQuery}
             isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
+            currentBreadcrumbs={breadcrumbs}
           />
         )}
       </div>

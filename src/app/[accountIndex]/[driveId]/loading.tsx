@@ -7,6 +7,8 @@ import { DriveToolbar } from "@/components/drive/drive-toolbar";
 import { DriveTableSkeleton } from "@/components/drive/drive-table-skeleton";
 import { FileDetailSkeleton } from "@/components/drive/file-detail-skeleton";
 
+import { getStoredBreadcrumbs } from "@/lib/breadcrumbs";
+
 export default function DriveItemLoading() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -51,20 +53,13 @@ export default function DriveItemLoading() {
   }, [driveId, typeParam]);
 
   if (isFolder) {
-    let folderDisplayName = "Memuat...";
-    if (typeof window !== "undefined" && driveId) {
-      const cachedName = sessionStorage.getItem(`drive_folder_name_${driveId}`);
-      if (cachedName) folderDisplayName = cachedName;
-    }
+    const breadcrumbChain = getStoredBreadcrumbs(driveId);
 
     return (
       <div className="w-full">
         <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
           <BreadcrumbNav
-            breadcrumbs={[
-              { id: "root", name: "My Drive" },
-              { id: driveId || "folder", name: folderDisplayName },
-            ]}
+            breadcrumbs={breadcrumbChain}
             onNavigate={() => {}}
           />
 
@@ -85,5 +80,5 @@ export default function DriveItemLoading() {
     );
   }
 
-  return <FileDetailSkeleton accountIndex={accountIndex} />;
+  return <FileDetailSkeleton accountIndex={accountIndex} driveId={driveId} />;
 }

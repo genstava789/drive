@@ -15,12 +15,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
 
+import { BreadcrumbItem } from "@/types/drive";
+import { recordFolderNavigation } from "@/lib/breadcrumbs";
+
 interface DriveGridProps {
   files: DriveFile[];
   accountIndex?: number;
   searchQuery?: string;
   isFiltered?: boolean;
   hasNoAccount?: boolean;
+  currentBreadcrumbs?: BreadcrumbItem[];
 }
 
 export function DriveGrid({
@@ -29,16 +33,26 @@ export function DriveGrid({
   searchQuery = "",
   isFiltered = false,
   hasNoAccount = false,
+  currentBreadcrumbs,
 }: DriveGridProps) {
   const router = useRouter();
 
   const handleItemClick = (file: DriveFile) => {
     const isFolder = file.mimeType === "application/vnd.google-apps.folder";
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(`drive_type_${file.id}`, isFolder ? "folder" : "file");
-      if (isFolder) {
-        sessionStorage.setItem(`drive_folder_name_${file.id}`, file.name);
-      }
+    const parentId =
+      currentBreadcrumbs?.[currentBreadcrumbs.length - 1]?.id || "root";
+    if (isFolder) {
+      recordFolderNavigation(
+        currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
+        { id: file.id, name: file.name }
+      );
+    } else if (typeof window !== "undefined") {
+      sessionStorage.setItem(`drive_type_${file.id}`, "file");
+      sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
+      sessionStorage.setItem(
+        `drive_breadcrumbs_${file.id}`,
+        JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
+      );
     }
     router.push(`/${accountIndex}/${file.id}${isFolder ? "?type=folder" : ""}`);
   };
