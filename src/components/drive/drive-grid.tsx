@@ -25,6 +25,8 @@ interface DriveGridProps {
   isFiltered?: boolean;
   hasNoAccount?: boolean;
   currentBreadcrumbs?: BreadcrumbItem[];
+  onFolderClick?: (folder: { id: string; name: string }) => void;
+  onPrefetchFolder?: (folderId: string) => void;
 }
 
 export function DriveGrid({
@@ -34,6 +36,8 @@ export function DriveGrid({
   isFiltered = false,
   hasNoAccount = false,
   currentBreadcrumbs,
+  onFolderClick,
+  onPrefetchFolder,
 }: DriveGridProps) {
   const router = useRouter();
 
@@ -42,15 +46,19 @@ export function DriveGrid({
     const parentId =
       currentBreadcrumbs?.[currentBreadcrumbs.length - 1]?.id || "root";
     if (isFolder) {
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("drive_navigating_id", file.id);
-        sessionStorage.setItem("drive_navigating_type", "folder");
+      if (onFolderClick) {
+        onFolderClick({ id: file.id, name: file.name });
+      } else {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("drive_navigating_id", file.id);
+          sessionStorage.setItem("drive_navigating_type", "folder");
+        }
+        recordFolderNavigation(
+          currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
+          { id: file.id, name: file.name }
+        );
+        router.push(`/${accountIndex}/${file.id}?type=folder`);
       }
-      recordFolderNavigation(
-        currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
-        { id: file.id, name: file.name }
-      );
-      router.push(`/${accountIndex}/${file.id}?type=folder`);
     } else {
       if (typeof window !== "undefined") {
         sessionStorage.setItem("drive_navigating_id", file.id);
@@ -167,7 +175,10 @@ export function DriveGrid({
               <div
                 key={folder.id}
                 onClick={() => handleItemClick(folder)}
-                onMouseEnter={() => router.prefetch(`/${accountIndex}/${folder.id}`)}
+                onMouseEnter={() => {
+                  if (onPrefetchFolder) onPrefetchFolder(folder.id);
+                  router.prefetch(`/${accountIndex}/${folder.id}?type=folder`);
+                }}
                 className="group flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all duration-150 cursor-pointer"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">

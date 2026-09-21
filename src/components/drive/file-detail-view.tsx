@@ -161,6 +161,12 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
         <Link
           href={backUrl}
           prefetch={true}
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("drive_navigating_type", "folder");
+              sessionStorage.setItem("drive_navigating_id", parentFolder?.id || "root");
+            }
+          }}
           className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
           title={`Kembali ke ${parentFolder?.name || "My Drive"}`}
         >
@@ -179,6 +185,12 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
                 <Link
                   href={crumbUrl}
                   prefetch={true}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("drive_navigating_type", "folder");
+                      sessionStorage.setItem("drive_navigating_id", crumb.id);
+                    }
+                  }}
                   className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
                 >
                   {crumb.name}

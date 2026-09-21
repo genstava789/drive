@@ -21,9 +21,11 @@ export async function GET(request: NextRequest) {
       searchParams.get("refresh") === "true" ||
       searchParams.get("demo") === "true";
 
-    const session = await auth();
-    const serverState = await getServerStoreState();
-    const serverAccounts = await getServerAccounts();
+    const [session, serverState, serverAccounts] = await Promise.all([
+      auth(),
+      getServerStoreState(),
+      getServerAccounts(),
+    ]);
     const envAcc = getEnvProvisionedAccount();
 
     const hasSessionAuth = Boolean(session?.user || session?.accessToken);

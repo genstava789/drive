@@ -16,6 +16,7 @@ import {
   getStoredBreadcrumbs,
   saveBreadcrumbsForFolder,
   appendBreadcrumb,
+  recordFolderNavigation,
 } from "@/lib/breadcrumbs";
 import { DriveTableSkeleton } from "./drive-table-skeleton";
 
@@ -277,23 +278,203 @@ export function DriveExplorer({
   useEffect(() => {
     if (typeof window !== "undefined" && initialFolderId && initialFolderId !== "root") {
       sessionStorage.setItem(`drive_type_${initialFolderId}`, "folder");
+      if (initialFolderName) {
+        sessionStorage.setItem(`drive_folder_name_${initialFolderId}`, initialFolderName);
+      }
     }
-  }, [initialFolderId]);
+  }, [initialFolderId, initialFolderName]);
 
-  // Navigate using breadcrumb
-  const handleBreadcrumbNavigate = (folderId: string, index: number) => {
-    if (folderId === "root") {
-      saveBreadcrumbsForFolder("root", [{ id: "root", name: "My Drive" }]);
-      router.push(`/${accountIndex}`);
-    } else {
-      const sliced = breadcrumbs.slice(0, index + 1);
-      saveBreadcrumbsForFolder(folderId, sliced);
+  // Prefetch folder files into client cache in the background
+  const prefetchFolder = useCallback(
+    async (folderId: string) => {
+      if (!folderId || folderId === "root") return;
+      const activeCacheKey = `${accountIndex}_${folderId}`;
+      const cached = clientFolderCache.get(activeCacheKey);
+      if (cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS) {
+        return; // Already fresh
+      }
+
+      try {
+        const res = await fetch(
+          `/api/drive?folderId=${encodeURIComponent(folderId)}&accountIndex=${accountIndex}`
+        );
+        if (res.ok) {
+          const data: DriveResponse = await res.json();
+          if (data.files) {
+            clientFolderCache.set(activeCacheKey, {
+              files: data.files,
+              currentFolderName: data.currentFolderName,
+              timestamp: Date.now(),
+            });
+          }
+        }
+      } catch (_) {}
+    },
+    [accountIndex]
+  );
+
+  // Instant in-app folder navigation (0ms without page reload)
+  const handleFolderClick = useCallback(
+    (folder: { id: string; name: string }) => {
+      // 1. Immediately update breadcrumbs in memory & sessionStorage
+      const updated = recordFolderNavigation(breadcrumbs, folder);
+      setBreadcrumbs(updated);
+
       if (typeof window !== "undefined") {
+        sessionStorage.setItem("drive_navigating_id", folder.id);
+        sessionStorage.setItem("drive_navigating_type", "folder");
+        sessionStorage.setItem(`drive_type_${folder.id}`, "folder");
+        sessionStorage.setItem(`drive_folder_name_${folder.id}`, folder.name);
+      }
+
+      setSearchQuery("");
+
+      // 2. Update browser URL without destroying/remounting component
+      const targetUrl = `/${accountIndex}/${folder.id}?type=folder`;
+      window.history.pushState(
+        { folderId: folder.id, accountIndex },
+        "",
+        targetUrl
+      );
+
+      // 3. Instant cache check: if cached, render immediately (0ms)!
+      const activeCacheKey = `${accountIndex}_${folder.id}`;
+      const cached = clientFolderCache.get(activeCacheKey);
+      const isFresh =
+        cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+      setCurrentFolderId(folder.id);
+
+      if (isFresh) {
+        setFiles(cached.files);
+        setIsLoading(false);
+      } else {
+        setFiles([]);
+        setIsLoading(true);
+        fetchFiles(folder.id);
+      }
+    },
+    [accountIndex, breadcrumbs, fetchFiles]
+  );
+
+  // Navigate using breadcrumb instantly
+  const handleBreadcrumbNavigate = useCallback(
+    (folderId: string, index: number) => {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("drive_navigating_id", folderId);
+        sessionStorage.setItem("drive_navigating_type", "folder");
         sessionStorage.setItem(`drive_type_${folderId}`, "folder");
       }
-      router.push(`/${accountIndex}/${folderId}?type=folder`);
-    }
-  };
+
+      setSearchQuery("");
+
+      if (folderId === "root") {
+        const rootTrail: BreadcrumbItem[] = [{ id: "root", name: "My Drive" }];
+        setBreadcrumbs(rootTrail);
+        saveBreadcrumbsForFolder("root", rootTrail);
+        window.history.pushState({ folderId: "root", accountIndex }, "", `/${accountIndex}`);
+
+        const activeCacheKey = `${accountIndex}_root`;
+        const cached = clientFolderCache.get(activeCacheKey);
+        const isFresh =
+          cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+        setCurrentFolderId("root");
+        if (isFresh) {
+          setFiles(cached.files);
+          setIsLoading(false);
+        } else {
+          setFiles([]);
+          setIsLoading(true);
+          fetchFiles("root");
+        }
+      } else {
+        const sliced = breadcrumbs.slice(0, index + 1);
+        setBreadcrumbs(sliced);
+        saveBreadcrumbsForFolder(folderId, sliced);
+        window.history.pushState(
+          { folderId, accountIndex },
+          "",
+          `/${accountIndex}/${folderId}?type=folder`
+        );
+
+        const activeCacheKey = `${accountIndex}_${folderId}`;
+        const cached = clientFolderCache.get(activeCacheKey);
+        const isFresh =
+          cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+        setCurrentFolderId(folderId);
+        if (isFresh) {
+          setFiles(cached.files);
+          setIsLoading(false);
+        } else {
+          setFiles([]);
+          setIsLoading(true);
+          fetchFiles(folderId);
+        }
+      }
+    },
+    [accountIndex, breadcrumbs, fetchFiles]
+  );
+
+  // Handle browser Back / Forward buttons without full page reloads
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === "undefined") return;
+      const locParts = window.location.pathname.split("/").filter(Boolean);
+      const accIdx = locParts[0] ? parseInt(locParts[0], 10) || 0 : 0;
+      if (accIdx !== accountIndex) {
+        return;
+      }
+      const targetFolderId = locParts[1] ? decodeURIComponent(locParts[1]) : "root";
+      const cachedType = sessionStorage.getItem(`drive_type_${targetFolderId}`);
+      if (cachedType === "file") {
+        window.location.reload();
+        return;
+      }
+
+      const trail = getStoredBreadcrumbs(targetFolderId);
+      setBreadcrumbs(trail);
+      setSearchQuery("");
+
+      const activeCacheKey = `${accountIndex}_${targetFolderId}`;
+      const cached = clientFolderCache.get(activeCacheKey);
+      const isFresh =
+        cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+      setCurrentFolderId(targetFolderId);
+      if (isFresh) {
+        setFiles(cached.files);
+        setIsLoading(false);
+      } else {
+        setFiles([]);
+        setIsLoading(true);
+        fetchFiles(targetFolderId);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [accountIndex, fetchFiles]);
+
+  // Idle prefetching: automatically prefetch immediate subfolders when idle
+  useEffect(() => {
+    if (!files || files.length === 0 || isLoading) return;
+
+    const subfolders = files
+      .filter((f) => f.mimeType === "application/vnd.google-apps.folder")
+      .slice(0, 4);
+
+    if (subfolders.length === 0) return;
+
+    const idleTimer = setTimeout(() => {
+      subfolders.forEach((subfolder) => {
+        prefetchFolder(subfolder.id);
+      });
+    }, 500);
+
+    return () => clearTimeout(idleTimer);
+  }, [files, isLoading, prefetchFolder]);
 
   // Filter files based on category
   const filteredFiles = useMemo(() => {
@@ -371,7 +552,7 @@ export function DriveExplorer({
         {isLoading ? (
           <DriveTableSkeleton rowCount={7} />
         ) : viewMode === "table" ? (
-          /* Headless TanStack Table View with Route Navigation */
+          /* Headless TanStack Table View with Instant Folder Navigation */
           <DriveTable
             data={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
@@ -379,9 +560,11 @@ export function DriveExplorer({
             isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
             currentBreadcrumbs={breadcrumbs}
+            onFolderClick={handleFolderClick}
+            onPrefetchFolder={prefetchFolder}
           />
         ) : (
-          /* Visual Grid View with Route Navigation */
+          /* Visual Grid View with Instant Folder Navigation */
           <DriveGrid
             files={hasNoAccount ? [] : filteredFiles}
             accountIndex={accountIndex}
@@ -389,6 +572,8 @@ export function DriveExplorer({
             isFiltered={isFiltered}
             hasNoAccount={hasNoAccount}
             currentBreadcrumbs={breadcrumbs}
+            onFolderClick={handleFolderClick}
+            onPrefetchFolder={prefetchFolder}
           />
         )}
       </div>

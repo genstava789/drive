@@ -63,6 +63,8 @@ interface DriveTableProps {
   isFiltered?: boolean;
   hasNoAccount?: boolean;
   currentBreadcrumbs?: BreadcrumbItem[];
+  onFolderClick?: (folder: { id: string; name: string }) => void;
+  onPrefetchFolder?: (folderId: string) => void;
 }
 
 export function DriveTable({
@@ -72,6 +74,8 @@ export function DriveTable({
   isFiltered = false,
   hasNoAccount = false,
   currentBreadcrumbs,
+  onFolderClick,
+  onPrefetchFolder,
 }: DriveTableProps) {
   const router = useRouter();
 
@@ -88,15 +92,19 @@ export function DriveTable({
     const parentId =
       currentBreadcrumbs?.[currentBreadcrumbs.length - 1]?.id || "root";
     if (isFolder) {
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("drive_navigating_id", file.id);
-        sessionStorage.setItem("drive_navigating_type", "folder");
+      if (onFolderClick) {
+        onFolderClick({ id: file.id, name: file.name });
+      } else {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("drive_navigating_id", file.id);
+          sessionStorage.setItem("drive_navigating_type", "folder");
+        }
+        recordFolderNavigation(
+          currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
+          { id: file.id, name: file.name }
+        );
+        router.push(`/${accountIndex}/${file.id}?type=folder`);
       }
-      recordFolderNavigation(
-        currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
-        { id: file.id, name: file.name }
-      );
-      router.push(`/${accountIndex}/${file.id}?type=folder`);
     } else {
       if (typeof window !== "undefined") {
         sessionStorage.setItem("drive_navigating_id", file.id);
@@ -392,7 +400,10 @@ export function DriveTable({
           const isFolder = file.mimeType === "application/vnd.google-apps.folder";
 
           return (
-            <div className="flex items-center justify-end">
+            <div
+              className="flex items-center justify-end"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -705,7 +716,20 @@ export function DriveTable({
                 <TableRow
                   key={row.id}
                   className="hover:bg-blue-50/30 transition-colors cursor-pointer"
-                  onMouseEnter={() => router.prefetch(`/${accountIndex}/${row.original.id}`)}
+                  onClick={() => handleRowClick(row.original)}
+                  onMouseEnter={() => {
+                    const isFolder =
+                      row.original.mimeType ===
+                      "application/vnd.google-apps.folder";
+                    if (isFolder && onPrefetchFolder) {
+                      onPrefetchFolder(row.original.id);
+                    }
+                    router.prefetch(
+                      `/${accountIndex}/${row.original.id}${
+                        isFolder ? "?type=folder" : ""
+                      }`
+                    );
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
