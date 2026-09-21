@@ -103,30 +103,27 @@ async function main() {
     }).toString();
 
   console.log("--------------------------------------------------------");
-  console.log("LANGKAH 1: Buka tautan berikut di browser Anda:");
+  console.log("LANGKAH 1: Membuka halaman login & otorisasi Google...");
   console.log("--------------------------------------------------------");
   console.log(authUrl);
   console.log("--------------------------------------------------------\n");
 
-  const tryOpen = await ask("Buka tautan ini secara otomatis di browser Anda sekarang? (Y/n): ");
-  if (tryOpen.trim().toLowerCase() !== "n") {
-    openBrowser(authUrl);
-  }
+  openBrowser(authUrl);
 
-  console.log("\n--------------------------------------------------------");
-  console.log("LANGKAH 2: Setelah login dan menyetujui akses:");
-  console.log("Browser akan dialihkan ke halaman redirect URI Anda.");
-  console.log("Salin SELURUH URL di address bar browser Anda");
-  console.log("(atau salin nilai parameter ?code=...) dan tempelkan di bawah ini.");
+  console.log("--------------------------------------------------------");
+  console.log("LANGKAH 2: Setelah login dan klik 'Izinkan/Allow':");
+  console.log("Browser akan diarahkan ke halaman redirect (Vercel).");
+  console.log("👉 Salin SELURUH URL dari address bar browser Anda");
+  console.log("   (yang ada tulisan '?code=4/0...') lalu tempel di bawah:");
   console.log("--------------------------------------------------------\n");
 
-  const inputCodeOrUrl = await ask("Tempelkan URL pengalihan atau kode di sini: ");
-  const trimmed = inputCodeOrUrl.trim();
-
-  if (!trimmed) {
-    console.error("❌ Error: Kode otorisasi tidak boleh kosong.");
-    rl.close();
-    process.exit(1);
+  let trimmed = "";
+  while (!trimmed) {
+    const inputCodeOrUrl = await ask("Tempelkan URL atau kode di sini: ");
+    trimmed = inputCodeOrUrl.trim();
+    if (!trimmed) {
+      console.log("⚠️ Input masih kosong. Silakan salin URL dari address bar browser dan tempel di sini.");
+    }
   }
 
   let code = trimmed;
