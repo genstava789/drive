@@ -170,3 +170,264 @@ export async function removeAccountFromSupabase(accountId: string): Promise<bool
     return false;
   }
 }
+
+/* =========================================================================
+   METADATA CACHE & INDEXING LAYER (files_cache & drive_sync_state)
+   ========================================================================= */
+
+import { DriveFile } from "@/types/drive";
+
+function mapRowToDriveFile(row: any): DriveFile {
+  return {
+    id: row.id,
+    name: row.name,
+    mimeType: row.mime_type,
+    size: row.size !== null && row.size !== undefined ? Number(row.size) : undefined,
+    modifiedTime: row.modified_time || new Date().toISOString(),
+    createdTime: row.created_time || undefined,
+    webViewLink: row.web_view_link || undefined,
+    webContentLink:
+      row.web_content_link ||
+      `https://drive.google.com/uc?export=download&id=${row.id}`,
+    iconLink: row.icon_link || undefined,
+    thumbnailLink: row.thumbnail_link || undefined,
+    shared: Boolean(row.shared),
+    parents: Array.isArray(row.parents)
+      ? row.parents
+      : row.parent_id
+      ? [row.parent_id]
+      : undefined,
+    description: row.description || undefined,
+  };
+}
+
+function mapDriveFileToRow(
+  f: DriveFile,
+  accountId: string,
+  defaultParentId = "root"
+): any {
+  const isFolder = f.mimeType === "application/vnd.google-apps.folder";
+  const parentId =
+    f.parents && f.parents.length > 0 ? f.parents[0] : defaultParentId;
+  return {
+    id: f.id,
+    account_id: accountId,
+    name: f.name,
+    mime_type: f.mimeType,
+    is_folder: isFolder,
+    size: f.size !== undefined && f.size !== null ? Number(f.size) : null,
+    parent_id: parentId,
+    parents: f.parents && f.parents.length > 0 ? f.parents : [parentId],
+    thumbnail_link: f.thumbnailLink || null,
+    web_view_link: f.webViewLink || null,
+    web_content_link: f.webContentLink || null,
+    icon_link: f.iconLink || null,
+    shared: Boolean(f.shared),
+    trashed: false,
+    created_time: f.createdTime || null,
+    modified_time: f.modifiedTime || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetch cached files for a specific folder from Supabase files_cache (Latency ~15-25ms)
+ */
+export async function getCachedFolderFilesFromSupabase(
+  accountId: string,
+  folderId = "root",
+  query?: string
+): Promise<DriveFile[] | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId) return null;
+
+  try {
+    let builder = supabase
+      .from("files_cache")
+      .select("*")
+      .eq("account_id", accountId)
+      .eq("trashed", false);
+
+    if (query && query.trim()) {
+      // Fast ILIKE search
+      builder = builder.ilike("name", `%${query.trim()}%`);
+    } else {
+      // Query specific parent folder
+      builder = builder.eq("parent_id", folderId);
+    }
+
+    // Sort folders first, then alphabetical by name
+    builder = builder
+      .order("is_folder", { ascending: false })
+      .order("name", { ascending: true });
+
+    const { data, error } = await builder;
+
+    if (error) {
+      // If table doesn't exist yet, gracefully return null
+      if (error.code === "PGRST205" || error.code === "42P01") {
+        return null;
+      }
+      console.warn("[SupabaseCache] Error querying files_cache:", error.message);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return data.map(mapRowToDriveFile);
+  } catch (err) {
+    console.warn("[SupabaseCache] Unexpected query error:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single cached file/folder item by ID from Supabase
+ */
+export async function getCachedItemByIdFromSupabase(
+  accountId: string,
+  itemId: string
+): Promise<DriveFile | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId || !itemId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("files_cache")
+      .select("*")
+      .eq("account_id", accountId)
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return mapRowToDriveFile(data);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Batch upsert Drive files into Supabase files_cache
+ */
+export async function upsertFilesToSupabaseCache(
+  accountId: string,
+  files: DriveFile[],
+  defaultParentId = "root"
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId || !files || files.length === 0) return false;
+
+  try {
+    const rows = files.map((f) =>
+      mapDriveFileToRow(f, accountId, defaultParentId)
+    );
+
+    // Upsert in batches of 100 for maximum performance
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const chunk = rows.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase.from("files_cache").upsert(chunk, {
+        onConflict: "id, account_id",
+      });
+
+      if (error) {
+        if (error.code === "PGRST205" || error.code === "42P01") {
+          // Table doesn't exist yet
+          return false;
+        }
+        console.warn(
+          "[SupabaseCache] Error upserting files_cache chunk:",
+          error.message
+        );
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.warn("[SupabaseCache] Upsert error:", err);
+    return false;
+  }
+}
+
+/**
+ * Remove deleted files from Supabase files_cache
+ */
+export async function removeFilesFromSupabaseCache(
+  accountId: string,
+  fileIds: string[]
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId || !fileIds || fileIds.length === 0) return false;
+
+  try {
+    const { error } = await supabase
+      .from("files_cache")
+      .delete()
+      .eq("account_id", accountId)
+      .in("id", fileIds);
+
+    if (error) {
+      console.warn("[SupabaseCache] Error deleting files:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("[SupabaseCache] Delete error:", err);
+    return false;
+  }
+}
+
+/**
+ * Retrieve Google Drive changes.list start_page_token for an account
+ */
+export async function getDriveSyncToken(
+  accountId: string
+): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("drive_sync_state")
+      .select("start_page_token")
+      .eq("account_id", accountId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data.start_page_token || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Save Google Drive changes.list start_page_token for an account
+ */
+export async function saveDriveSyncToken(
+  accountId: string,
+  token: string
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !accountId || !token) return false;
+
+  try {
+    const { error } = await supabase.from("drive_sync_state").upsert(
+      {
+        account_id: accountId,
+        start_page_token: token,
+        last_synced_at: new Date().toISOString(),
+      },
+      { onConflict: "account_id" }
+    );
+
+    return !error;
+  } catch (_) {
+    return false;
+  }
+}

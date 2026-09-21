@@ -4,6 +4,14 @@ import {
   getValidAccessTokenForAccount,
   getServerStoreState,
 } from "./server-account-store";
+import {
+  getCachedFolderFilesFromSupabase,
+  getCachedItemByIdFromSupabase,
+  upsertFilesToSupabaseCache,
+  removeFilesFromSupabaseCache,
+  getDriveSyncToken,
+  saveDriveSyncToken,
+} from "./supabase";
 
 // Server-side in-memory cache for ultra-fast folder and item lookups
 interface CachedDriveResult {
@@ -25,18 +33,25 @@ export function clearServerDriveCache(): void {
   driveItemCache.clear();
 }
 
+function resolveAccountId(serverState: any, accountIndex: number): string {
+  const acc = serverState?.accounts?.[accountIndex];
+  return acc?.id || acc?.email || `acc_${accountIndex}`;
+}
+
 export async function getDriveFiles(
   accessToken?: string | null,
   folderId = "root",
   accountIndex = 0,
-  forceMock = false,
+  forceRefresh = false,
   query?: string
 ): Promise<DriveResponse> {
   const sanitizedQuery = (query || "").trim().replace(/['\\]/g, "");
   const cacheKey = sanitizedQuery
     ? `${accountIndex}:search:${sanitizedQuery.toLowerCase()}`
     : `${accountIndex}:${folderId}`;
-  if (!forceMock) {
+
+  // 1. In-Memory Fast Cache Check
+  if (!forceRefresh) {
     const cached = driveFolderCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < FOLDER_CACHE_TTL_MS) {
       return cached.data;
@@ -56,15 +71,51 @@ export async function getDriveFiles(
     };
   }
 
-  // Check if we can use server-stored valid token if none provided in browser session
+  const accountId = resolveAccountId(serverState, accountIndex);
+
+  // 2. Supabase PostgreSQL Cache / Indexing Layer Check (<20ms latency)
+  if (!forceRefresh) {
+    try {
+      const supabaseCached = await getCachedFolderFilesFromSupabase(
+        accountId,
+        folderId,
+        sanitizedQuery
+      );
+
+      if (supabaseCached && supabaseCached.length > 0) {
+        // Pre-populate in-memory item cache for instant file clicks
+        for (const item of supabaseCached) {
+          driveItemCache.set(`${accountIndex}:${item.id}`, {
+            data: item,
+            timestamp: Date.now(),
+          });
+        }
+
+        const result: DriveResponse = {
+          files: supabaseCached,
+          currentFolderId: folderId,
+          currentFolderName: sanitizedQuery ? `Pencarian: "${sanitizedQuery}"` : undefined,
+          isMockData: false,
+          accountIndex,
+          isAuthenticated: true,
+        };
+
+        driveFolderCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
+      }
+    } catch (err) {
+      console.warn("[GoogleDrive] Supabase cache lookup skipped:", err);
+    }
+  }
+
+  // 3. Fallback to Google Drive API with trimmed fields
   let effectiveToken = accessToken;
-  if (!effectiveToken && !forceMock) {
+  if (!effectiveToken) {
     try {
       effectiveToken = await getValidAccessTokenForAccount(accountIndex);
     } catch (_) {}
   }
 
-  // If still no access token is available, return empty data (no demo accounts)
   if (!effectiveToken) {
     return {
       files: [],
@@ -81,8 +132,10 @@ export async function getDriveFiles(
     const parentQuery = sanitizedQuery
       ? `name contains '${sanitizedQuery}' and trashed = false`
       : `'${folderId}' in parents and trashed = false`;
+
+    // Pruned fields to minimize JSON payload size and transfer time
     const fields =
-      "nextPageToken, files(id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink, iconLink, thumbnailLink, shared, owners, parents, description)";
+      "nextPageToken, files(id, name, mimeType, size, modifiedTime, createdTime, thumbnailLink, shared, parents)";
     const url = new URL("https://www.googleapis.com/drive/v3/files");
     url.searchParams.set("q", parentQuery);
     url.searchParams.set("fields", fields);
@@ -135,26 +188,24 @@ export async function getDriveFiles(
       modifiedTime: file.modifiedTime || new Date().toISOString(),
       createdTime: file.createdTime,
       webViewLink: file.webViewLink,
-      webContentLink: file.webContentLink || `https://drive.google.com/uc?export=download&id=${file.id}`,
-      iconLink: file.iconLink,
+      webContentLink:
+        file.webContentLink ||
+        `https://drive.google.com/uc?export=download&id=${file.id}`,
       thumbnailLink: file.thumbnailLink,
       shared: file.shared || false,
-      owners: file.owners?.map((owner: any) => ({
-        displayName: owner.displayName,
-        emailAddress: owner.emailAddress,
-        photoLink: owner.photoLink,
-        me: owner.me,
-      })),
-      parents: file.parents,
-      description: file.description,
+      parents: file.parents || [folderId],
     }));
 
-    // Pre-populate individual item cache so any subsequent click on a file or folder
-    // resolves instantaneously in 0.1ms without calling the Google Drive API again!
+    // Pre-populate individual item cache so subsequent clicks resolve in 0.1ms
     for (const item of files) {
       const itemKey = `${accountIndex}:${item.id}`;
       driveItemCache.set(itemKey, { data: item, timestamp: Date.now() });
     }
+
+    // Persist to Supabase cache in the background (fire-and-forget for maximum speed)
+    upsertFilesToSupabaseCache(accountId, files, folderId).catch((e) =>
+      console.warn("[GoogleDrive] Background Supabase cache upsert error:", e)
+    );
 
     const result: DriveResponse = {
       files,
@@ -194,6 +245,19 @@ export async function getDriveItemById(
     if (cached && Date.now() - cached.timestamp < ITEM_CACHE_TTL_MS) {
       return cached.data;
     }
+  }
+
+  // 1. Check Supabase Cache Layer
+  if (!forceRefresh) {
+    try {
+      const serverState = await getServerStoreState();
+      const accountId = resolveAccountId(serverState, accountIndex);
+      const supabaseItem = await getCachedItemByIdFromSupabase(accountId, id);
+      if (supabaseItem) {
+        driveItemCache.set(itemCacheKey, { data: supabaseItem, timestamp: Date.now() });
+        return supabaseItem;
+      }
+    } catch (_) {}
   }
 
   let effectiveToken = accessToken;
@@ -253,6 +317,13 @@ export async function getDriveItemById(
           description: file.description,
         };
         driveItemCache.set(itemCacheKey, { data: itemResult, timestamp: Date.now() });
+
+        // Save to Supabase cache in the background
+        getServerStoreState().then((serverState) => {
+          const accountId = resolveAccountId(serverState, accountIndex);
+          upsertFilesToSupabaseCache(accountId, [itemResult]).catch(() => {});
+        });
+
         return itemResult;
       }
     } catch (e) {
@@ -261,6 +332,174 @@ export async function getDriveItemById(
   }
 
   return null;
+}
+
+/**
+ * Incrementally synchronize changes from Google Drive via changes.list() API
+ * into Supabase files_cache.
+ */
+export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
+  success: boolean;
+  changesCount: number;
+  updatedCount: number;
+  removedCount: number;
+  newStartPageToken?: string;
+  message?: string;
+}> {
+  const serverState = await getServerStoreState();
+  const accountId = resolveAccountId(serverState, accountIndex);
+
+  let token = await getValidAccessTokenForAccount(accountIndex);
+  if (!token) {
+    return {
+      success: false,
+      changesCount: 0,
+      updatedCount: 0,
+      removedCount: 0,
+      message: "Tidak ada token akses valid untuk akun ini",
+    };
+  }
+
+  try {
+    let pageToken = await getDriveSyncToken(accountId);
+
+    // If no start_page_token yet, fetch one from Google Drive API
+    if (!pageToken) {
+      const tokenRes = await fetch(
+        "https://www.googleapis.com/drive/v3/changes/startPageToken?supportsAllDrives=true",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (tokenRes.ok) {
+        const tokenData = await tokenRes.json();
+        pageToken = tokenData.startPageToken;
+        if (pageToken) {
+          await saveDriveSyncToken(accountId, pageToken);
+        }
+      }
+
+      // Pre-seed files_cache by fetching root items
+      const initialRoot = await getDriveFiles(token, "root", accountIndex, true);
+      return {
+        success: true,
+        changesCount: initialRoot.files.length,
+        updatedCount: initialRoot.files.length,
+        removedCount: 0,
+        newStartPageToken: pageToken || undefined,
+        message: "Inisialisasi token sinkronisasi dan cache awal berhasil",
+      };
+    }
+
+    // Call changes.list incrementally
+    let currentToken: string | null = pageToken;
+    let totalChanges = 0;
+    let updatedCount = 0;
+    let removedCount = 0;
+    const toUpsert: DriveFile[] = [];
+    const toRemove: string[] = [];
+    let newStartToken: string | undefined;
+
+    // Fetch changes pages (cap at 5 pages per sync run to prevent timeouts)
+    let pageCount = 0;
+    while (currentToken && pageCount < 5) {
+      pageCount++;
+      const fields =
+        "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,modifiedTime,createdTime,thumbnailLink,shared,parents,trashed))";
+      const changeUrl: string = `https://www.googleapis.com/drive/v3/changes?pageToken=${encodeURIComponent(
+        currentToken
+      )}&fields=${encodeURIComponent(
+        fields
+      )}&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=100`;
+
+      const changeRes: Response = await fetch(changeUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!changeRes.ok) {
+        // If token is expired or invalid (HTTP 400/404/410), reset startPageToken
+        if (changeRes.status === 400 || changeRes.status === 404 || changeRes.status === 410) {
+          console.warn("[DriveSync] StartPageToken expired or invalid, re-initializing...");
+          const tokenRes = await fetch(
+            "https://www.googleapis.com/drive/v3/changes/startPageToken?supportsAllDrives=true",
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (tokenRes.ok) {
+            const tokenData: any = await tokenRes.json();
+            if (tokenData.startPageToken) {
+              await saveDriveSyncToken(accountId, tokenData.startPageToken);
+            }
+          }
+        }
+        break;
+      }
+
+      const changeData: any = await changeRes.json();
+      const changes = changeData.changes || [];
+      totalChanges += changes.length;
+
+      for (const ch of changes) {
+        if (ch.removed || ch.file?.trashed) {
+          toRemove.push(ch.fileId);
+          removedCount++;
+        } else if (ch.file && ch.file.name) {
+          toUpsert.push({
+            id: ch.file.id,
+            name: ch.file.name,
+            mimeType: ch.file.mimeType,
+            size: ch.file.size ? parseInt(ch.file.size, 10) : undefined,
+            modifiedTime: ch.file.modifiedTime || new Date().toISOString(),
+            createdTime: ch.file.createdTime,
+            thumbnailLink: ch.file.thumbnailLink,
+            shared: ch.file.shared || false,
+            parents: ch.file.parents || ["root"],
+          });
+          updatedCount++;
+        }
+      }
+
+      if (changeData.newStartPageToken) {
+        newStartToken = changeData.newStartPageToken;
+        currentToken = null;
+      } else {
+        currentToken = changeData.nextPageToken || null;
+      }
+    }
+
+    if (toUpsert.length > 0) {
+      await upsertFilesToSupabaseCache(accountId, toUpsert);
+      driveFolderCache.clear();
+      driveItemCache.clear();
+    }
+
+    if (toRemove.length > 0) {
+      await removeFilesFromSupabaseCache(accountId, toRemove);
+      driveFolderCache.clear();
+      driveItemCache.clear();
+    }
+
+    if (newStartToken) {
+      await saveDriveSyncToken(accountId, newStartToken);
+    }
+
+    return {
+      success: true,
+      changesCount: totalChanges,
+      updatedCount,
+      removedCount,
+      newStartPageToken: newStartToken,
+      message: `Sinkronisasi berhasil: ${totalChanges} perubahan diproses`,
+    };
+  } catch (err: any) {
+    console.error("[DriveSync] Error during changes sync:", err);
+    return {
+      success: false,
+      changesCount: 0,
+      updatedCount: 0,
+      removedCount: 0,
+      message: err.message || "Gagal menyinkronkan perubahan Drive",
+    };
+  }
 }
 
 /**

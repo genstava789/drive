@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getDriveFiles, getDriveItemById, getFolderBreadcrumbs } from "@/lib/google-drive";
+import {
+  getDriveFiles,
+  getDriveItemById,
+  getFolderBreadcrumbs,
+  syncDriveChangesForAccount,
+} from "@/lib/google-drive";
 import {
   getServerStoreState,
   getServerAccounts,
@@ -98,6 +103,11 @@ export async function GET(request: NextRequest) {
       query
     );
 
+    // If manual refresh requested, trigger incremental sync in the background
+    if (forceRefresh) {
+      syncDriveChangesForAccount(accountIndex).catch(() => {});
+    }
+
     if (folderId !== "root" && !query) {
       try {
         const breadcrumbs = await getFolderBreadcrumbs(
@@ -109,9 +119,13 @@ export async function GET(request: NextRequest) {
       } catch (_) {}
     }
 
+    const cacheHeader = forceRefresh
+      ? "no-store, no-cache, must-revalidate"
+      : "private, max-age=10, stale-while-revalidate=60";
+
     return NextResponse.json(driveData, {
       headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Cache-Control": cacheHeader,
       },
     });
   } catch (error: any) {
