@@ -7,6 +7,7 @@
  * - GET /download.aspx?file=FILE_ID
  * - GET /?id=FILE_ID or /?file=FILE_ID
  * - GET /:fileId
+ * - GET /generate       : Web Token Generator for OAuth Refresh Token
  *
  * Query Options:
  * - ?inline=true        : Stream inline (e.g. for media preview) instead of attachment download
@@ -18,7 +19,7 @@
 // Configuration (can also be overridden via Cloudflare Worker Environment Variables)
 const authConfig = {
   siteName: "LeviDrive Downloader",
-  // Google OAuth 2.0 credentials
+  // Google OAuth 2.0 credentials (dapat diisi otomatis via generate-tokens.js atau env Cloudflare)
   client_id: "", // Or set GOOGLE_CLIENT_ID env variable
   client_secret: "", // Or set GOOGLE_CLIENT_SECRET env variable
   refresh_token: "", // Or set REFRESH_TOKEN env variable
@@ -202,7 +203,7 @@ async function getAccessToken(env, explicitToken) {
     result = await fetchAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken);
   } else {
     throw new Error(
-      "Worker belum dikonfigurasi dengan Google credentials. Harap set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, dan REFRESH_TOKEN (atau SERVICE_ACCOUNT_JSON) di environment variables Cloudflare Worker, atau teruskan parameter ?token=ACCESS_TOKEN."
+      "Worker belum dikonfigurasi dengan Google credentials. Harap jalankan 'node generate-tokens.js' untuk mendapatkan refresh_token, atau set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, dan REFRESH_TOKEN di environment variables Cloudflare Worker."
     );
   }
 
@@ -349,6 +350,127 @@ async function handleDownload(request, fileId, env, searchParams) {
 }
 
 /**
+ * Built-in Web Generator UI for OAuth Tokens
+ */
+function renderWebGenerator(url) {
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google OAuth Token Generator • LeviDrive</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 28px; max-width: 600px; width: 100%; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); }
+    h1 { font-size: 20px; font-weight: 700; color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 8px; }
+    p { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+    label { font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-top: 14px; margin-bottom: 6px; }
+    input { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 9px 12px; color: #f8fafc; font-size: 13px; outline: none; }
+    input:focus { border-color: #38bdf8; }
+    .btn { display: inline-block; background: #0284c7; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; margin-top: 16px; }
+    .btn:hover { background: #0369a1; }
+    .box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; word-break: break-all; margin-top: 12px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; background: #0369a1; color: #e0f2fe; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>🔑 OAuth Token Generator</h1>
+      <span class="badge">LeviDrive</span>
+    </div>
+    <p>Gunakan formulir ini atau script CLI <code>node generate-tokens.js</code> di folder <code>cloudflare-worker</code> untuk membuat <strong>REFRESH_TOKEN</strong> dari <code>credentials.json</code>.</p>
+    
+    <label>Client ID:</label>
+    <input type="text" id="cid" placeholder="xxxx.apps.googleusercontent.com" value="${authConfig.client_id}">
+
+    <label>Redirect URI:</label>
+    <input type="text" id="ruri" value="${url.origin}/oauth/callback">
+
+    <button class="btn" onclick="openAuth()">1. Buka Otorisasi Google</button>
+
+    <div style="margin-top:20px; border-top: 1px solid #334155; padding-top:16px;">
+      <label>2. Tempelkan Authorization Code di sini:</label>
+      <input type="text" id="code" placeholder="4/0Abc123...">
+
+      <label>Client Secret:</label>
+      <input type="text" id="csec" placeholder="GOCSPX-..." value="${authConfig.client_secret}">
+
+      <button class="btn" onclick="exchangeCode()" style="background:#10b981;">3. Dapatkan Refresh Token</button>
+    </div>
+
+    <div id="output" class="box" style="display:none;"></div>
+  </div>
+
+  <script>
+    function openAuth() {
+      const cid = document.getElementById('cid').value.trim();
+      const ruri = document.getElementById('ruri').value.trim();
+      if(!cid) return alert('Masukkan Client ID terlebih dahulu');
+      const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: cid,
+        redirect_uri: ruri,
+        response_type: 'code',
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        access_type: 'offline',
+        prompt: 'consent'
+      });
+      window.open(url, '_blank');
+    }
+
+    async function exchangeCode() {
+      const cid = document.getElementById('cid').value.trim();
+      const csec = document.getElementById('csec').value.trim();
+      const ruri = document.getElementById('ruri').value.trim();
+      let code = document.getElementById('code').value.trim();
+      if (code.includes('code=')) {
+        try {
+          const u = new URL(code.startsWith('http') ? code : 'http://x.com/' + code);
+          code = u.searchParams.get('code') || code;
+        } catch(_) {}
+      }
+      if(!cid || !csec || !code) return alert('Lengkapi Client ID, Client Secret, dan Code.');
+
+      const out = document.getElementById('output');
+      out.style.display = 'block';
+      out.innerText = 'Sedang menukar token dengan Google...';
+
+      try {
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: cid,
+            client_secret: csec,
+            code: code,
+            grant_type: 'authorization_code',
+            redirect_uri: ruri
+          }).toString()
+        });
+        const data = await res.json();
+        if(!res.ok) {
+          out.innerText = 'Error: ' + JSON.stringify(data, null, 2);
+        } else {
+          out.innerHTML = '<strong>BERHASIL!</strong><br><br>' +
+            'GOOGLE_CLIENT_ID="' + cid + '"<br>' +
+            'GOOGLE_CLIENT_SECRET="' + csec + '"<br>' +
+            'REFRESH_TOKEN="' + (data.refresh_token || 'Tidak ada (sudah pernah disetujui sebelumnya)') + '"';
+        }
+      } catch(err) {
+        out.innerText = 'Error: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=UTF-8" },
+  });
+}
+
+/**
  * Main Cloudflare Worker Request Handler
  */
 async function handleRequest(request, env) {
@@ -366,6 +488,11 @@ async function handleRequest(request, env) {
         "Access-Control-Max-Age": "86400",
       },
     });
+  }
+
+  // Web Generator Route
+  if (path === "/generate" || path === "/oauth") {
+    return renderWebGenerator(url);
   }
 
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -413,6 +540,7 @@ async function handleRequest(request, env) {
     JSON.stringify({
       service: "LeviDrive Cloudflare Worker Downloader",
       status: "online",
+      generator: `${url.origin}/generate`,
       documentation: {
         usage: `${url.origin}/download?id=GOOGLE_DRIVE_FILE_ID`,
         parameters: {
