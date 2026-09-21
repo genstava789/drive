@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/auth/session-provider";
 
@@ -10,8 +10,15 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+  variable: "--font-outfit",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "CloudVault • Google Drive Explorer",
+  title: "LeviDrive • Google Drive Explorer",
   description:
     "Jelajahi, urutkan, dan kelola berkas & folder Google Drive secara cepat dan elegan dengan tema White Smoke dan TanStack Table.",
   icons: {
@@ -25,7 +32,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${plusJakarta.variable} antialiased`}>
+    <html
+      lang="id"
+      className={`${plusJakarta.variable} ${outfit.variable} antialiased`}
+    >
       <body className="min-h-screen bg-[#F6F7F9] text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-900">
         <SessionProvider>{children}</SessionProvider>
       </body>

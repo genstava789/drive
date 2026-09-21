@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Search,
   X,
@@ -35,14 +34,14 @@ const CATEGORIES: {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
 }[] = [
-  { id: "all", label: "Semua Berkas" },
+  { id: "all", label: "Semua" },
   { id: "folder", label: "Folder", icon: Folder },
   { id: "document", label: "Dokumen", icon: FileText },
   { id: "spreadsheet", label: "Spreadsheet", icon: FileSpreadsheet },
   { id: "presentation", label: "Slide", icon: Presentation },
   { id: "image", label: "Gambar", icon: ImageIcon },
   { id: "pdf", label: "PDF" },
-  { id: "archive", label: "Arsip (ZIP)" },
+  { id: "archive", label: "ZIP" },
 ];
 
 export function DriveToolbar({
@@ -54,82 +53,75 @@ export function DriveToolbar({
   onViewModeChange,
   onRefresh,
   isLoading,
-  isMockData,
 }: DriveToolbarProps) {
   return (
-    <div className="space-y-3">
-      {/* Top Search & Controls Row */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        {/* Search Bar with clear button */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    <div className="space-y-2.5">
+      {/* Search & Actions Row - Single unified responsive flex row */}
+      <div className="flex items-center gap-2 w-full">
+        {/* Search input takes all available width */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari berkas atau folder Google Drive..."
-            className="pl-9 pr-8 bg-white border-slate-200/90 text-sm h-9 shadow-2xs focus-visible:ring-blue-500/20"
+            placeholder="Cari berkas..."
+            className="h-8.5 sm:h-9 pl-8 pr-7 text-xs sm:text-sm bg-white border-slate-200/90 rounded-xl shadow-2xs focus-visible:ring-blue-500/20"
           />
           {searchQuery && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        {/* Right Action buttons */}
-        <div className="flex items-center gap-1.5 self-end sm:self-auto">
-          {/* Refresh Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="h-9 px-3 text-slate-600 border-slate-200 bg-white hover:bg-slate-50 shadow-2xs"
-            title="Muat Ulang Berkas"
+        {/* View Mode Toggle - Compact circular pill segmented control */}
+        <div className="flex items-center rounded-full border border-slate-200/90 bg-slate-100/70 p-0.5 shadow-2xs shrink-0">
+          <button
+            onClick={() => onViewModeChange("table")}
+            className={`flex h-7 w-7 sm:h-7.5 sm:w-7.5 items-center justify-center rounded-full transition-all cursor-pointer ${
+              viewMode === "table"
+                ? "bg-white text-slate-900 shadow-2xs font-bold"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Tampilan Tabel"
           >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${isLoading ? "animate-spin text-blue-600" : ""}`}
-            />
-            <span className="hidden md:inline text-xs ml-1.5">Segarkan</span>
-          </Button>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
-            <button
-              onClick={() => onViewModeChange("table")}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
-                viewMode === "table"
-                  ? "bg-slate-100 text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-              title="Tampilan Tabel Detail (TanStack)"
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Tabel</span>
-            </button>
-            <button
-              onClick={() => onViewModeChange("grid")}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-slate-100 text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-              title="Tampilan Grid Kartu"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Grid</span>
-            </button>
-          </div>
+            <LayoutList className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onViewModeChange("grid")}
+            className={`flex h-7 w-7 sm:h-7.5 sm:w-7.5 items-center justify-center rounded-full transition-all cursor-pointer ${
+              viewMode === "grid"
+                ? "bg-white text-slate-900 shadow-2xs font-bold"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Tampilan Grid"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
         </div>
+
+        {/* Refresh Icon Button - Circular, well-proportioned icon */}
+        <button
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="flex h-8 w-8 sm:h-8.5 sm:w-8.5 shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+          title="Muat Ulang Berkas"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 transition-transform ${
+              isLoading ? "animate-spin text-blue-600" : ""
+            }`}
+          />
+        </button>
       </div>
 
-      {/* Category Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-0.5">
-        <span className="text-[11px] font-medium text-slate-400 mr-1 flex items-center gap-1">
-          <Filter className="h-3 w-3" /> Filter:
+      {/* Category Filter Pills - Compact horizontal scroller */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 mr-0.5 flex items-center gap-1 shrink-0">
+          <Filter className="h-3 w-3" />
         </span>
         {CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.id;
@@ -138,10 +130,10 @@ export function DriveToolbar({
             <button
               key={cat.id}
               onClick={() => onCategoryChange(cat.id)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-medium transition whitespace-nowrap cursor-pointer shrink-0 ${
                 isSelected
                   ? "bg-blue-600 text-white shadow-2xs font-semibold"
-                  : "bg-white border border-slate-200/90 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
               {Icon && <Icon className="h-3 w-3" />}

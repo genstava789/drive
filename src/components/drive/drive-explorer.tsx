@@ -8,12 +8,10 @@ import { DriveToolbar } from "./drive-toolbar";
 import { DriveTable } from "./drive-table";
 import { DriveGrid } from "./drive-grid";
 import { FilePreviewModal } from "./file-preview-modal";
-import { StatsCards } from "./stats-cards";
-import { ModeBanner } from "./mode-badge";
 import { OAuthSetupDialog } from "../auth/oauth-setup-dialog";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HardDrive, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 export function DriveExplorer() {
   const { data: session } = useSession();
@@ -98,27 +96,16 @@ export function DriveExplorer() {
   }, [files, selectedCategory]);
 
   return (
-    <div className="space-y-5">
-      {/* Status Mode Banner */}
-      <ModeBanner
-        isMockData={isMockData}
-        onOpenSetupGuide={() => setSetupGuideOpen(true)}
-      />
-
-      {/* Overview Stats Cards */}
-      <StatsCards files={files} isMockData={isMockData} />
-
-      {/* Explorer Main Content Area */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm space-y-4">
-        {/* Breadcrumb Path & Folder Hierarchy Navigation */}
+    <div className="w-full">
+      {/* Explorer Main Content Card */}
+      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-xs space-y-2.5 sm:space-y-3">
+        {/* Breadcrumb Path */}
         <BreadcrumbNav
           breadcrumbs={breadcrumbs}
           onNavigate={handleBreadcrumbNavigate}
         />
 
-        <div className="border-t border-slate-100" />
-
-        {/* Toolbar: Search, Category Pills, View Mode, Refresh */}
+        {/* Toolbar: Search, View Mode, Refresh & Filter pills */}
         <DriveToolbar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -133,7 +120,7 @@ export function DriveExplorer() {
 
         {/* Error Notice */}
         {error && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
             <span>{error}</span>
           </div>
@@ -141,12 +128,12 @@ export function DriveExplorer() {
 
         {/* Loading Skeleton */}
         {isLoading ? (
-          <div className="space-y-2 py-4">
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
+          <div className="space-y-2 py-3">
+            <Skeleton className="h-8.5 w-full rounded-lg" />
+            <Skeleton className="h-11 w-full rounded-lg" />
+            <Skeleton className="h-11 w-full rounded-lg" />
+            <Skeleton className="h-11 w-full rounded-lg" />
+            <Skeleton className="h-11 w-full rounded-lg" />
           </div>
         ) : viewMode === "table" ? (
           /* Headless TanStack Table View */
