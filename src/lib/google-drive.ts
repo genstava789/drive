@@ -28,6 +28,7 @@ export async function getDriveFiles(
       isMockData: false,
       accountIndex,
       accounts: [],
+      isAuthenticated: false,
     };
   }
 
@@ -74,6 +75,7 @@ export async function getDriveFiles(
         isMockData: false,
         accountIndex,
         accounts: [],
+        isAuthenticated: false,
       };
     }
 
@@ -106,6 +108,7 @@ export async function getDriveFiles(
       currentFolderId: folderId,
       isMockData: false,
       accountIndex,
+      isAuthenticated: true,
     };
   } catch (error) {
     console.error("Error fetching Google Drive files:", error);
@@ -115,6 +118,7 @@ export async function getDriveFiles(
       isMockData: false,
       accountIndex,
       accounts: [],
+      isAuthenticated: false,
     };
   }
 }

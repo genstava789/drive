@@ -45,6 +45,7 @@ export interface DriveResponse {
   isMockData?: boolean;
   accountIndex?: number;
   accounts?: GoogleAccount[];
+  isAuthenticated?: boolean;
   storageQuota?: {
     limit?: string;
     usage?: string;

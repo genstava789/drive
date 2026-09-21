@@ -45,56 +45,9 @@ export function DriveExplorer({
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  // Synchronize accounts state with server and browser session
-  useEffect(() => {
-    let isMounted = true;
-    const checkAccounts = async () => {
-      let currentServerAccounts: GoogleAccount[] = [];
-      try {
-        const res = await fetch("/api/auth/accounts");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data?.accounts)) {
-            currentServerAccounts = data.accounts;
-            if (isMounted) setServerAccounts(currentServerAccounts);
-          }
-        }
-      } catch (_) {}
-
-      if (!isMounted) return;
-
-      const active = getActiveAccounts(session, currentServerAccounts);
-      if (active.length === 0) {
-        setHasNoAccount(true);
-        setFiles([]);
-        setIsLoading(false);
-      } else {
-        setHasNoAccount(false);
-        if (accountIndex >= active.length) {
-          router.push("/0");
-        }
-      }
-    };
-
-    checkAccounts();
-    window.addEventListener("levidrive_accounts_changed", checkAccounts);
-    return () => {
-      isMounted = false;
-      window.removeEventListener("levidrive_accounts_changed", checkAccounts);
-    };
-  }, [session, accountIndex, router]);
-
   // Fetch Drive items from API
   const fetchFiles = useCallback(
     async (folderId: string) => {
-      const active = getActiveAccounts(session, serverAccounts);
-      if (active.length === 0) {
-        setHasNoAccount(true);
-        setFiles([]);
-        setIsLoading(false);
-        return;
-      }
-      setHasNoAccount(false);
       setIsLoading(true);
       setError(null);
       try {
@@ -111,8 +64,12 @@ export function DriveExplorer({
         setFiles(incomingFiles);
         setIsMockData(data.isMockData ?? false);
 
-        if (incomingFiles.length === 0 && (!data.accounts || data.accounts.length === 0) && !session?.user && serverAccounts.length === 0) {
+        // Authoritative authentication state from server:
+        if (data.isAuthenticated === false) {
           setHasNoAccount(true);
+          setFiles([]);
+        } else {
+          setHasNoAccount(false);
         }
 
         if (folderId !== "root") {
@@ -133,12 +90,55 @@ export function DriveExplorer({
         setIsLoading(false);
       }
     },
-    [accountIndex, initialFolderName, session, serverAccounts]
+    [accountIndex, initialFolderName]
   );
 
   useEffect(() => {
     fetchFiles(currentFolderId);
   }, [currentFolderId, fetchFiles]);
+
+  // Synchronize accounts state with server and browser session
+  useEffect(() => {
+    let isMounted = true;
+    const checkAccounts = async (isExplicitEvent = false) => {
+      let currentServerAccounts: GoogleAccount[] = [];
+      try {
+        const res = await fetch("/api/auth/accounts");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.accounts)) {
+            currentServerAccounts = data.accounts;
+            if (isMounted) setServerAccounts(currentServerAccounts);
+          }
+        }
+      } catch (_) {}
+
+      if (!isMounted) return;
+
+      const active = getActiveAccounts(session, currentServerAccounts);
+      if (isExplicitEvent) {
+        if (active.length === 0) {
+          setHasNoAccount(true);
+          setFiles([]);
+        } else {
+          setHasNoAccount(false);
+          fetchFiles(currentFolderId);
+        }
+      } else {
+        if (active.length > 0 && accountIndex >= active.length) {
+          router.push("/0");
+        }
+      }
+    };
+
+    checkAccounts(false);
+    const onAccountsChanged = () => checkAccounts(true);
+    window.addEventListener("levidrive_accounts_changed", onAccountsChanged);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("levidrive_accounts_changed", onAccountsChanged);
+    };
+  }, [session, accountIndex, router, currentFolderId, fetchFiles]);
 
   // Navigate using breadcrumb
   const handleBreadcrumbNavigate = (folderId: string, index: number) => {
