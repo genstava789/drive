@@ -11,16 +11,33 @@ const isVercel = Boolean(
   process.env.VERCEL_URL
 );
 
+// Dapatkan domain redirect terdaftar resmi dari credentials.json
+let registeredBaseDomain = "https://drive-iota-vert.vercel.app";
+try {
+  const credPath = path.join(process.cwd(), "credentials.json");
+  if (fs.existsSync(credPath)) {
+    const fileContent = fs.readFileSync(credPath, "utf-8");
+    const parsed = JSON.parse(fileContent);
+    const creds = parsed.web || parsed.installed;
+    if (creds?.redirect_uris && creds.redirect_uris.length > 0) {
+      const match = creds.redirect_uris[0].split("/api/auth")[0];
+      if (match) {
+        registeredBaseDomain = match.replace(/\/$/, "");
+      }
+    }
+  }
+} catch {
+  // Gunakan fallback resmi jika file tidak terbaca
+}
+
 if (isVercel) {
-  // Saat berjalan di platform Vercel, arahkan ke URL domain produksi Vercel
+  // Di platform Vercel, prioritaskan AUTH_URL / NEXTAUTH_URL resmi (bukan localhost) atau domain dari credentials.json
   const prodUrl =
     (process.env.AUTH_URL && !process.env.AUTH_URL.includes("localhost"))
       ? process.env.AUTH_URL
-      : process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://drive-iota-vert.vercel.app";
+      : (process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.includes("localhost"))
+      ? process.env.NEXTAUTH_URL
+      : registeredBaseDomain;
 
   process.env.AUTH_URL = prodUrl.split("/api/auth")[0].replace(/\/$/, "");
   process.env.NEXTAUTH_URL = process.env.AUTH_URL;
@@ -119,6 +136,9 @@ const googleCreds = getGoogleCredentials();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  redirectProxyUrl: isVercel
+    ? `${(process.env.AUTH_URL || registeredBaseDomain).replace(/\/$/, "")}/api/auth`
+    : undefined,
   secret:
     process.env.AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
