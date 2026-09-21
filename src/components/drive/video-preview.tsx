@@ -7,16 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Video,
-  Maximize2,
-  Minimize2,
-  ExternalLink,
-  Download,
+  Play,
+  ChevronUp,
   Loader2,
-  Radio,
-  Tv,
-  AlertCircle,
 } from "lucide-react";
-import { formatBytes, getDownloadUrl, getVideoStreamUrl } from "@/lib/utils";
+import { formatBytes, getVideoStreamUrl } from "@/lib/utils";
 
 const VidstackPlayer = dynamic(
   () =>
@@ -29,17 +24,14 @@ const VidstackPlayer = dynamic(
 
 function VideoLoadingSkeleton() {
   return (
-    <div className="w-full aspect-video rounded-xl bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3 border border-slate-800 shadow-lg">
+    <div className="w-full aspect-video bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3 border border-slate-800">
       <div className="relative flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
         <Video className="h-4 w-4 text-blue-400 absolute" />
       </div>
       <div className="flex flex-col items-center text-center px-4">
         <p className="text-xs font-semibold text-slate-200">
-          Menyiapkan Vidstack Player...
-        </p>
-        <p className="text-[11px] text-slate-500 mt-0.5">
-          Menghubungkan stream langsung Google Drive
+          Menyiapkan Pemutar Video...
         </p>
       </div>
     </div>
@@ -52,12 +44,11 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
-  const [isTheater, setIsTheater] = useState(false);
-  const [useDriveIframe, setUseDriveIframe] = useState(false);
+  // Video player is hidden by default
+  const [isOpen, setIsOpen] = useState(false);
 
   // Direct HTTP 206 streaming proxy URL
   const streamUrl = getVideoStreamUrl(file.id, accountIndex);
-  const downloadUrl = getDownloadUrl(file.id, file.name);
 
   // Get high-res poster thumbnail from Google Drive if available
   const posterUrl = file.thumbnailLink
@@ -79,74 +70,26 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
     ? "480p SD"
     : null;
 
-  const drivePreviewUrl =
-    file.webViewLink && file.webViewLink.includes("drive.google.com")
-      ? file.webViewLink.replace(/\/view(\?.*)?$/, "/preview")
-      : `https://drive.google.com/file/d/${file.id}/preview`;
-
   return (
-    <div
-      className={`rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-xs transition-all duration-300 ${
-        isTheater
-          ? "fixed inset-2 sm:inset-4 z-50 flex flex-col bg-slate-950 border-slate-800 shadow-2xl"
-          : "relative w-full"
-      }`}
-    >
-      {/* Video Player Header Toolbar */}
-      <div
-        className={`flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 border-b select-none transition-colors ${
-          isTheater
-            ? "bg-slate-900/90 border-slate-800 text-slate-100"
-            : "bg-slate-50/90 border-slate-200/80 text-slate-800"
-        }`}
-      >
-        {/* Left: Video File Info & Badges */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1 max-w-full sm:max-w-xl">
-          <div
-            className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold shrink-0 ${
-              isTheater
-                ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                : "bg-blue-600 text-white shadow-2xs"
-            }`}
-          >
+    <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-xs transition-all w-full">
+      {/* Header Info: Filename and Badges (Clean, Mobile-Friendly, No Truncation Glitches) */}
+      <div className="p-3 sm:p-3.5 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between gap-2.5">
+        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+          <div className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs shrink-0 mt-0.5">
             <Video className="h-4 w-4" />
           </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2
-                className={`font-semibold truncate text-xs sm:text-sm ${
-                  isTheater ? "text-slate-100" : "text-slate-900"
-                }`}
-                title={file.name}
-              >
-                {file.name}
-              </h2>
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              {/* Live Streaming Indicator */}
-              <div
-                className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                  isTheater
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
-                }`}
-              >
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                </span>
-                <span>Stream Langsung</span>
-              </div>
-
+          <div className="min-w-0 flex-1 space-y-1">
+            <h2
+              className="font-bold text-slate-900 text-xs sm:text-sm leading-snug break-words [overflow-wrap:anywhere]"
+              title={file.name}
+            >
+              {file.name}
+            </h2>
+            <div className="flex items-center gap-1.5 flex-wrap">
               {/* Format Badge */}
               <Badge
                 variant="outline"
-                className={`text-[10px] px-1.5 py-0 font-mono ${
-                  isTheater
-                    ? "border-slate-700 text-slate-300"
-                    : "border-slate-200 text-slate-700"
-                }`}
+                className="text-[10px] px-1.5 py-0 font-mono border-slate-200 text-slate-700 bg-white"
               >
                 {videoFormat}
               </Badge>
@@ -163,11 +106,7 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
 
               {/* File Size */}
               {file.size ? (
-                <span
-                  className={`text-[10px] font-mono ${
-                    isTheater ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
+                <span className="text-[10px] font-mono text-slate-500">
                   {formatBytes(file.size)}
                 </span>
               ) : null}
@@ -175,128 +114,66 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
           </div>
         </div>
 
-        {/* Right: Player Controls Toolbar */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Switch between Vidstack & Google Drive Preview Iframe */}
+        {/* Toggle Collapse Button when Player is Open */}
+        {isOpen && (
           <Button
-            variant={useDriveIframe ? "default" : "outline"}
+            variant="ghost"
             size="sm"
-            onClick={() => setUseDriveIframe(!useDriveIframe)}
-            className={`h-7.5 px-2.5 text-[11px] gap-1.5 rounded-lg cursor-pointer ${
-              isTheater
-                ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                : ""
-            }`}
-            title={
-              useDriveIframe
-                ? "Ganti ke Pemutar Vidstack"
-                : "Ganti ke Preview Bawaan Google Drive"
-            }
+            onClick={() => setIsOpen(false)}
+            className="h-7.5 px-2 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg shrink-0 gap-1 cursor-pointer"
+            title="Sembunyikan Pemutar Video"
           >
-            <Tv className="h-3.5 w-3.5" />
-            <span className="hidden xs:inline">
-              {useDriveIframe ? "Vidstack" : "Drive Preview"}
-            </span>
+            <ChevronUp className="h-3.5 w-3.5" />
+            <span className="hidden xs:inline">Tutup</span>
           </Button>
-
-          {/* Theater Mode Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsTheater(!isTheater)}
-            className={`h-7.5 px-2.5 text-[11px] gap-1.5 rounded-lg cursor-pointer ${
-              isTheater
-                ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                : ""
-            }`}
-            title={isTheater ? "Tutup Mode Bioskop" : "Mode Bioskop (Layar Lebar)"}
-          >
-            {isTheater ? (
-              <>
-                <Minimize2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Normal</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Bioskop</span>
-              </>
-            )}
-          </Button>
-
-          {/* Direct Download Button */}
-          <a
-            href={downloadUrl}
-            target="_blank"
-            rel="noreferrer"
-            download={file.name}
-            className="inline-flex"
-            title="Unduh Berkas Video"
-          >
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-7.5 px-2 text-[11px] rounded-lg cursor-pointer ${
-                isTheater
-                  ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                  : ""
-              }`}
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-          </a>
-        </div>
-      </div>
-
-      {/* Main Video Viewport */}
-      <div
-        className={`relative flex items-center justify-center bg-black ${
-          isTheater
-            ? "flex-1 w-full h-full min-h-0 overflow-hidden p-2 sm:p-4"
-            : "w-full aspect-video"
-        }`}
-      >
-        {useDriveIframe ? (
-          /* Google Drive Native Iframe Preview */
-          <div className="w-full h-full relative">
-            <iframe
-              src={drivePreviewUrl}
-              className="w-full h-full border-0 bg-black"
-              allow="autoplay; fullscreen"
-              title={`Preview ${file.name}`}
-            />
-          </div>
-        ) : (
-          /* Vidstack Media Player */
-          <div className="w-full h-full flex items-center justify-center">
-            <VidstackPlayer
-              src={streamUrl}
-              title={file.name}
-              poster={posterUrl}
-              mimeType={file.mimeType}
-              className="w-full h-full"
-            />
-          </div>
         )}
       </div>
 
-      {/* Info / Quick Hints Footer */}
-      {!isTheater && (
-        <div className="px-3.5 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-          <div className="flex items-center gap-1.5 truncate">
-            <Radio className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-            <span className="truncate">
-              Streaming langsung via protokol HTTP 206 Partial Content (Vidstack)
+      {/* Main Area: Collapsed Card or Active Vidstack Player */}
+      {!isOpen ? (
+        /* Collapsed State: Sleek Preview Card with Centered Play Button & "Open Video" */
+        <div
+          onClick={() => setIsOpen(true)}
+          className="group relative aspect-video w-full cursor-pointer overflow-hidden bg-slate-950 flex items-center justify-center select-none"
+          title="Klik untuk membuka pemutar video"
+        >
+          {posterUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={posterUrl}
+                alt={file.name}
+                className="w-full h-full object-cover opacity-80 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/40 group-hover:from-black/70 transition-colors" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(37,99,235,0.15),transparent_70%)]" />
+            </div>
+          )}
+
+          {/* Centered Glowing Play Button & "Open Video" */}
+          <div className="relative z-10 flex flex-col items-center gap-2 sm:gap-2.5">
+            <div className="flex h-13 w-13 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-600/90 text-white shadow-xl shadow-blue-900/40 backdrop-blur-xs ring-4 ring-white/20 group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-300">
+              <Play className="h-5.5 w-5.5 sm:h-7 sm:w-7 fill-white ml-0.5 text-white" />
+            </div>
+            <span className="rounded-full bg-slate-900/80 px-3 py-1 text-[11px] sm:text-xs font-semibold text-white backdrop-blur shadow-md group-hover:bg-blue-600 transition-colors">
+              Open Video
             </span>
           </div>
-
-          <div className="hidden sm:flex items-center gap-2 shrink-0 font-mono text-[10px] text-slate-400">
-            <span>Spasi: Play/Pause</span>
-            <span>•</span>
-            <span>F: Layar Penuh</span>
-            <span>•</span>
-            <span>M: Mute</span>
-          </div>
+        </div>
+      ) : (
+        /* Open State: Active Vidstack Player */
+        <div className="w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
+          <VidstackPlayer
+            src={streamUrl}
+            title={file.name}
+            poster={posterUrl}
+            mimeType={file.mimeType}
+            autoPlay={true}
+            className="w-full h-full"
+          />
         </div>
       )}
     </div>

@@ -29,19 +29,18 @@ export function VidstackPlayerInner({
   title,
   poster,
   mimeType,
-  autoPlay = false,
+  autoPlay = true,
   className = "",
 }: VidstackPlayerProps) {
   const playerRef = useRef<MediaPlayerInstance>(null);
 
-  // Vidstack src can be typed with mimeType if available
   const mediaSource = mimeType
     ? { src, type: mimeType as any }
     : src;
 
   return (
     <div
-      className={`vidstack-container relative w-full overflow-hidden rounded-xl bg-black shadow-lg ring-1 ring-slate-800/80 ${className}`}
+      className={`vidstack-container relative w-full overflow-hidden bg-black ${className}`}
     >
       <MediaPlayer
         ref={playerRef}
@@ -66,6 +65,9 @@ export function VidstackPlayerInner({
         <DefaultVideoLayout
           icons={defaultLayoutIcons}
           colorScheme="dark"
+          slots={{
+            title: null,
+          }}
         />
       </MediaPlayer>
     </div>
