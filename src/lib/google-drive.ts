@@ -2,7 +2,6 @@ import { DriveFile, DriveResponse } from "@/types/drive";
 
 import {
   getValidAccessTokenForAccount,
-  getServerAccounts,
   getServerStoreState,
 } from "./server-account-store";
 
@@ -94,7 +93,7 @@ export async function getDriveFiles(
       headers: {
         Authorization: `Bearer ${effectiveToken}`,
       },
-      next: { revalidate: 15 },
+      cache: "no-store",
     });
 
     // Auto-retry once with refreshed token if 401 Unauthorized
@@ -107,7 +106,7 @@ export async function getDriveFiles(
           headers: {
             Authorization: `Bearer ${effectiveToken}`,
           },
-          next: { revalidate: 15 },
+          cache: "no-store",
         });
       }
     }
@@ -207,7 +206,7 @@ export async function getDriveItemById(
         headers: {
           Authorization: `Bearer ${effectiveToken}`,
         },
-        next: { revalidate: 30 },
+        cache: "no-store",
       });
 
       if (response.status === 401) {
@@ -218,7 +217,7 @@ export async function getDriveItemById(
             headers: {
               Authorization: `Bearer ${effectiveToken}`,
             },
-            next: { revalidate: 30 },
+            cache: "no-store",
           });
         }
       }

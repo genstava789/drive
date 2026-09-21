@@ -15,6 +15,8 @@ interface CachedSettings {
 const settingsCache = new Map<number, CachedSettings>();
 const SETTINGS_CACHE_TTL_MS = 30000;
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
           "https://www.googleapis.com/drive/v3/about?fields=user,storageQuota",
           {
             headers: { Authorization: `Bearer ${effectiveToken}` },
-            next: { revalidate: 30 },
+            cache: "no-store",
           }
         );
 
@@ -129,7 +131,7 @@ export async function GET(request: NextRequest) {
           "https://www.googleapis.com/drive/v3/files?q=trashed = false&pageSize=1000&fields=nextPageToken,files(id,mimeType)",
           {
             headers: { Authorization: `Bearer ${effectiveToken}` },
-            next: { revalidate: 30 },
+            cache: "no-store",
           }
         );
         if (filesRes.ok) {
@@ -153,7 +155,7 @@ export async function GET(request: NextRequest) {
           "https://www.googleapis.com/drive/v3/files?q=trashed = true&pageSize=1000&fields=files(id)",
           {
             headers: { Authorization: `Bearer ${effectiveToken}` },
-            next: { revalidate: 30 },
+            cache: "no-store",
           }
         );
         if (trashRes.ok) {

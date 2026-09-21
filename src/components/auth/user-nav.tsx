@@ -54,12 +54,23 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
         .catch(() => {});
     };
 
-    fetchAccounts(false);
+    fetchAccounts(true);
     window.addEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     return () => {
       window.removeEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     };
   }, []);
+
+  // When session updates (e.g. after adding an account via OAuth), force fresh fetch of server accounts
+  useEffect(() => {
+    fetchCachedServerAccounts(true)
+      .then((serverAccs) => {
+        if (Array.isArray(serverAccs)) {
+          setServerAccounts(serverAccs);
+        }
+      })
+      .catch(() => {});
+  }, [session]);
 
   // Collect and filter available accounts
   useEffect(() => {
@@ -78,6 +89,7 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
   const activeAccount = accounts[accountIndex] || accounts[0];
 
   const handleSwitchAccount = (targetIndex: number) => {
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
     router.push(`/${targetIndex}`);
   };
 

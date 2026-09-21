@@ -8,7 +8,9 @@ import {
   saveServerAccount,
   refreshGoogleAccessToken,
   getServerStoreState,
+  getServerAccounts,
 } from "@/lib/server-account-store";
+import { clearServerDriveCache } from "@/lib/google-drive";
 
 // Konfigurasi dinamis AUTH_URL dan NEXTAUTH_URL untuk pengujian localhost & deployment Vercel
 const isVercel = Boolean(
@@ -93,17 +95,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, account, profile, user }) {
-      // 1. Initial sign-in with Google
+      // 1. Initial sign-in or additional account sign-in with Google
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
         token.signedInAt = Date.now();
-
-        // Support multi-account storage in JWT token
-        const accountsList: GoogleAccount[] = Array.isArray(token.accounts)
-          ? [...(token.accounts as GoogleAccount[])]
-          : [];
 
         const email =
           profile?.email || user?.email || (account as any).email || "";
@@ -111,28 +108,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const image = (profile as any)?.picture || user?.image || "";
         const accountId =
           (profile as any)?.sub || account.providerAccountId || email;
-
-        const existingIndex = accountsList.findIndex(
-          (a: GoogleAccount) => a.email === email || a.id === accountId
-        );
-
-        const accountData: GoogleAccount = {
-          id: accountId,
-          name,
-          email,
-          image,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiresAt: account.expires_at,
-        };
-
-        if (existingIndex >= 0) {
-          accountsList[existingIndex] = accountData;
-        } else {
-          accountsList.push(accountData);
-        }
-
-        token.accounts = accountsList;
 
         // Persist to server-side store for cross-device persistence
         try {
@@ -145,9 +120,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             refreshToken: account.refresh_token,
             expiresAt: account.expires_at,
           });
+          // Invalidate server drive file cache when accounts change
+          clearServerDriveCache();
         } catch (err) {
           console.warn("[Auth] Failed to save account to server store:", err);
         }
+
+        // Synchronize token.accounts with the authoritative server accounts list
+        try {
+          const serverAccs = await getServerAccounts();
+          if (serverAccs && serverAccs.length > 0) {
+            token.accounts = serverAccs.map((a, idx) => ({
+              id: a.id || `account-${idx}`,
+              name: a.name || "Akun Google",
+              email: a.email || "",
+              image: a.image,
+            }));
+          }
+        } catch (_) {}
 
         return token;
       }
@@ -168,6 +158,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return null;
       }
 
+      // Keep token.accounts synchronized with the authoritative server accounts
+      if (!token.accounts || (token.accounts as GoogleAccount[]).length === 0) {
+        token.accounts = serverState.accounts.map((a, idx) => ({
+          id: a.id || `account-${idx}`,
+          name: a.name || "Akun Google",
+          email: a.email || "",
+          image: a.image,
+        }));
+      }
+
       // 3. Subsequent requests: check if access token expired or will expire in next 5 minutes
       const nowEpoch = Math.floor(Date.now() / 1000);
       const isExpired =
@@ -183,13 +183,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.accessToken = refreshed.accessToken;
           token.expiresAt = newExpiresAt;
 
-          if (Array.isArray(token.accounts) && token.accounts.length > 0) {
-            (token.accounts[0] as GoogleAccount).accessToken =
-              refreshed.accessToken;
-            (token.accounts[0] as GoogleAccount).expiresAt = newExpiresAt;
-          }
-
-          // Update server store with refreshed access token
+          // Update server store with refreshed access token for this specific account
           if (token.sub) {
             saveServerAccount({
               id: token.sub,
@@ -208,7 +202,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (!token || !token.accessToken || !token.accounts || (token.accounts as GoogleAccount[]).length === 0) {
+      const serverState = await getServerStoreState();
+      const accountsList =
+        serverState.accounts && serverState.accounts.length > 0
+          ? serverState.accounts.map((a, idx) => ({
+              id: a.id || `account-${idx}`,
+              name: a.name || "Akun Google",
+              email: a.email || "",
+              image: a.image,
+            }))
+          : (token?.accounts as GoogleAccount[]) || [];
+
+      if (!token || (!token.accessToken && accountsList.length === 0)) {
         return {
           ...session,
           user: undefined,
@@ -220,9 +225,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token?.accessToken) {
         session.accessToken = token.accessToken as string;
       }
-      if (token?.accounts) {
-        session.accounts = token.accounts as GoogleAccount[];
+      session.accounts = accountsList;
+
+      // Keep user aligned with the primary account (index 0) if available
+      if (accountsList.length > 0) {
+        session.user = {
+          ...(session.user || {}),
+          id: accountsList[0].id,
+          name: accountsList[0].name,
+          email: accountsList[0].email,
+          image: accountsList[0].image,
+        } as any;
       }
+
       return session;
     },
   },

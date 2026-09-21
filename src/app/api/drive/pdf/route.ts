@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getValidAccessTokenForAccount } from "@/lib/server-account-store";
 import fs from "fs";
 import path from "path";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -17,11 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (isRealDriveFile) {
     try {
-      const session = await auth();
-      let accessToken = session?.accessToken;
-      if (session?.accounts && session.accounts[accountIndex]?.accessToken) {
-        accessToken = session.accounts[accountIndex].accessToken;
-      }
+      const accessToken = await getValidAccessTokenForAccount(accountIndex);
 
       if (accessToken) {
         const googleRes = await fetch(

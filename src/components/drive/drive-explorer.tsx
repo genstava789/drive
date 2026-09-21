@@ -108,7 +108,8 @@ export function DriveExplorer({
         const res = await fetch(
           `/api/drive?folderId=${encodeURIComponent(
             folderId
-          )}&accountIndex=${accountIndex}${isManualRefresh ? "&refresh=true" : ""}`
+          )}&accountIndex=${accountIndex}${isManualRefresh ? "&refresh=true" : ""}`,
+          { cache: "no-store" }
         );
         if (!res.ok) {
           throw new Error(`Gagal memuat berkas: ${res.statusText}`);
@@ -236,10 +237,10 @@ export function DriveExplorer({
   // Synchronize accounts state with server and browser session
   useEffect(() => {
     let isMounted = true;
-    const checkAccounts = async (isExplicitLogout = false) => {
+    const checkAccounts = async (forceRefresh = false) => {
       let currentServerAccounts: GoogleAccount[] = [];
       try {
-        currentServerAccounts = await fetchCachedServerAccounts(false);
+        currentServerAccounts = await fetchCachedServerAccounts(forceRefresh);
         if (isMounted) setServerAccounts(currentServerAccounts);
       } catch (_) {}
 
@@ -252,16 +253,16 @@ export function DriveExplorer({
         active.length > 0
       );
 
-      if (isExplicitLogout && !isUserAuthenticated) {
+      if (!isUserAuthenticated) {
         setHasNoAccount(true);
         setFiles([]);
         clientFolderCache.clear();
-      } else if (isUserAuthenticated) {
+      } else {
         setHasNoAccount(false);
       }
     };
 
-    checkAccounts(false);
+    checkAccounts(Boolean(session));
     const onAccountsChanged = () => {
       clientFolderCache.clear();
       checkAccounts(true);

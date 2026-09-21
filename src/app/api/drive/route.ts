@@ -8,6 +8,8 @@ import {
   getEnvProvisionedAccount,
 } from "@/lib/server-account-store";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -33,25 +35,26 @@ export async function GET(request: NextRequest) {
 
     // Only reject if completely unauthenticated across both browser session and server store
     if (!hasSessionAuth && !hasServerAuth && serverState.loggedOut) {
-      return NextResponse.json({
-        files: [],
-        currentFolderId: folderId,
-        currentFolderName: "My Drive",
-        isMockData: false,
-        accountIndex,
-        accounts: [],
-        isAuthenticated: false,
-      });
+      return NextResponse.json(
+        {
+          files: [],
+          currentFolderId: folderId,
+          currentFolderName: "My Drive",
+          isMockData: false,
+          accountIndex,
+          accounts: [],
+          isAuthenticated: false,
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      );
     }
 
-    // Select access token for the requested account index
-    let accessToken: string | null | undefined = session?.accessToken;
-    if (session?.accounts && session.accounts[accountIndex]?.accessToken) {
-      accessToken = session.accounts[accountIndex].accessToken;
-    }
-    if (!accessToken) {
-      accessToken = await getValidAccessTokenForAccount(accountIndex);
-    }
+    // Authoritatively resolve valid access token specifically for the requested account index
+    const accessToken = await getValidAccessTokenForAccount(accountIndex);
 
     // If single item lookup requested
     if (itemId) {
@@ -62,9 +65,24 @@ export async function GET(request: NextRequest) {
         forceRefresh
       );
       if (!item) {
-        return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
+        return NextResponse.json(
+          { error: "File tidak ditemukan" },
+          {
+            status: 404,
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            },
+          }
+        );
       }
-      return NextResponse.json({ item, accountIndex });
+      return NextResponse.json(
+        { item, accountIndex },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      );
     }
 
     const query = searchParams.get("query") || searchParams.get("q") || "";
@@ -78,12 +96,21 @@ export async function GET(request: NextRequest) {
       query
     );
 
-    return NextResponse.json(driveData);
+    return NextResponse.json(driveData, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error: any) {
     console.error("API /api/drive error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch Drive items" },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
     );
   }
 }

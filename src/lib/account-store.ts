@@ -16,15 +16,17 @@ export function invalidateClientAccountsCache() {
 
 export async function fetchCachedServerAccounts(force = false): Promise<GoogleAccount[]> {
   const now = Date.now();
-  if (!force && cachedServerAccounts.length > 0 && now - cachedServerAccountsTime < CLIENT_ACCOUNTS_TTL_MS) {
+  if (force) {
+    invalidateClientAccountsCache();
+  } else if (cachedServerAccounts.length > 0 && now - cachedServerAccountsTime < CLIENT_ACCOUNTS_TTL_MS) {
     return cachedServerAccounts;
   }
-  if (inflightServerAccountsPromise) {
+  if (inflightServerAccountsPromise && !force) {
     return inflightServerAccountsPromise;
   }
   inflightServerAccountsPromise = (async () => {
     try {
-      const res = await fetch("/api/auth/accounts");
+      const res = await fetch("/api/auth/accounts", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.accounts)) {
@@ -88,12 +90,14 @@ export function getActiveAccounts(
   session: any,
   serverAccounts: GoogleAccount[] = []
 ): GoogleAccount[] {
-  const isRealAuth = !!session?.user;
   let rawAccounts: GoogleAccount[] = [];
 
-  if (isRealAuth && session?.accounts && session.accounts.length > 0) {
+  // 1. Server accounts is the primary authoritative source for order (Account 0, Account 1, ...)
+  if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
+    rawAccounts = [...serverAccounts];
+  } else if (session?.accounts && session.accounts.length > 0) {
     rawAccounts = [...session.accounts];
-  } else if (isRealAuth && session?.user) {
+  } else if (session?.user) {
     rawAccounts = [
       {
         id: session.user.id || "primary",
@@ -102,18 +106,15 @@ export function getActiveAccounts(
         image: session.user.image || undefined,
       },
     ];
-  } else if (serverAccounts && serverAccounts.length > 0) {
-    rawAccounts = [...serverAccounts];
   } else {
-    // When logged out and no server accounts exist, return empty (no demo accounts)
     rawAccounts = [];
   }
 
-  // If serverAccounts has additional accounts not in current browser session, merge them
-  if (serverAccounts && serverAccounts.length > 0 && rawAccounts.length > 0) {
-    for (const sa of serverAccounts) {
-      if (!rawAccounts.some((a) => a.email === sa.email || a.id === sa.id)) {
-        rawAccounts.push(sa);
+  // 2. If session has any account not yet in serverAccounts, append to the end (never changing index 0)
+  if (session?.accounts && Array.isArray(session.accounts)) {
+    for (const acc of session.accounts) {
+      if (acc && !rawAccounts.some((a) => a.email === acc.email || a.id === acc.id)) {
+        rawAccounts.push(acc);
       }
     }
   }

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { getValidAccessTokenForAccount } from "@/lib/server-account-store";
 import { getDriveItemById } from "@/lib/google-drive";
 import { DriveExplorer } from "@/components/drive/drive-explorer";
 import { FileDetailView } from "@/components/drive/file-detail-view";
@@ -16,11 +16,7 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
   const accountIndex = parseInt(resolvedParams.accountIndex, 10) || 0;
   const driveId = decodeURIComponent(resolvedParams.driveId);
 
-  const session = await auth();
-  let accessToken = session?.accessToken;
-  if (session?.accounts && session.accounts[accountIndex]?.accessToken) {
-    accessToken = session.accounts[accountIndex].accessToken;
-  }
+  const accessToken = await getValidAccessTokenForAccount(accountIndex);
 
   // Look up item by Google Drive ID
   const item = await getDriveItemById(driveId, accessToken, accountIndex);
