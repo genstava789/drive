@@ -41,6 +41,84 @@
   --whitesmoke-border: #E3E7ED;
 }
 
+/* Midnight Color Palette (Celestial Deep Obsidian & Sky Blue Glow) */
+.midnight,
+[data-theme="midnight"] {
+  --background: #0B0F19;
+  --foreground: #F1F5F9;
+
+  --card: #111827;
+  --card-foreground: #F1F5F9;
+
+  --popover: #111827;
+  --popover-foreground: #F1F5F9;
+
+  --primary: #38BDF8;
+  --primary-foreground: #0B0F19;
+
+  --secondary: #162032;
+  --secondary-foreground: #E2E8F0;
+
+  --muted: #162032;
+  --muted-foreground: #94A3B8;
+
+  --accent: #1E293B;
+  --accent-foreground: #38BDF8;
+
+  --destructive: #F87171;
+  --destructive-foreground: #0B0F19;
+
+  --border: #1E293B;
+  --input: #162032;
+  --ring: #38BDF8;
+
+  --whitesmoke-50: #162032;
+  --whitesmoke-100: #0B0F19;
+  --whitesmoke-200: #1E293B;
+  --whitesmoke-300: #24324D;
+  --whitesmoke-400: #334155;
+  --whitesmoke-border: #1E293B;
+}
+
+/* Classic Dark Theme */
+.dark,
+[data-theme="dark"] {
+  --background: #090D16;
+  --foreground: #F8FAFC;
+
+  --card: #0F172A;
+  --card-foreground: #F8FAFC;
+
+  --popover: #0F172A;
+  --popover-foreground: #F8FAFC;
+
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1E293B;
+  --secondary-foreground: #E2E8F0;
+
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+
+  --accent: #1E293B;
+  --accent-foreground: #F8FAFC;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #3B82F6;
+
+  --whitesmoke-50: #1E293B;
+  --whitesmoke-100: #090D16;
+  --whitesmoke-200: #1E293B;
+  --whitesmoke-300: #334155;
+  --whitesmoke-400: #475569;
+  --whitesmoke-border: #1E293B;
+}
+
 @theme {
   --font-sans: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-outfit: var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -58,6 +136,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
@@ -71,17 +150,17 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F4F8;
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--whitesmoke-400);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--muted-foreground);
 }
 
-/* Glassmorphism helpers for White Smoke theme */
+/* Glassmorphism helpers */
 .glass-panel {
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
@@ -101,7 +180,7 @@
 }
 
 .elevated-card {
-  background: #FFFFFF;
+  background: var(--card);
   border: 1px solid var(--whitesmoke-border);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
   transition: all 0.2s ease-in-out;
@@ -109,5 +188,233 @@
 
 .elevated-card:hover {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
-  border-color: #CBD5E1;
+  border-color: var(--whitesmoke-400);
+}
+
+/* ==========================================================================
+   MIDNIGHT COLOR PALETTE THEME ENHANCEMENTS
+   Strictly preserving 100% of all layout structures, paddings & margins.
+   Only coloring surfaces, borders, text, tables, and controls.
+   ========================================================================== */
+
+.midnight body,
+.midnight [class*="bg-[#F6F7F9]"],
+.midnight .bg-\[\#F6F7F9\] {
+  background-color: #0B0F19 !important;
+  color: #F1F5F9 !important;
+}
+
+/* Header & Navigation Bar in Midnight */
+.midnight header,
+.midnight .glass-nav {
+  background-color: rgba(11, 15, 25, 0.88) !important;
+  border-color: rgba(30, 41, 59, 0.85) !important;
+}
+
+/* Footer in Midnight */
+.midnight footer {
+  background-color: rgba(11, 15, 25, 0.88) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+/* Main Cards & Containers in Midnight */
+.midnight .bg-white,
+.midnight [class*="bg-white/90"],
+.midnight [class*="bg-white/85"],
+.midnight [class*="bg-white/80"] {
+  background-color: #111827 !important;
+  color: #F1F5F9 !important;
+}
+
+.midnight .border-slate-200,
+.midnight [class*="border-slate-200"],
+.midnight [class*="border-slate-100"] {
+  border-color: #1E293B !important;
+}
+
+/* Text Hierarchy in Midnight */
+.midnight [class*="text-slate-900"],
+.midnight [class*="text-slate-800"] {
+  color: #F8FAFC !important;
+}
+
+.midnight [class*="text-slate-700"],
+.midnight [class*="text-slate-600"] {
+  color: #CBD5E1 !important;
+}
+
+.midnight [class*="text-slate-500"] {
+  color: #94A3B8 !important;
+}
+
+.midnight [class*="text-slate-400"] {
+  color: #64748B !important;
+}
+
+/* Brand Typography & Accents in Midnight */
+.midnight .font-outfit .text-slate-900 {
+  color: #FFFFFF !important;
+}
+
+.midnight .text-blue-600 {
+  color: #38BDF8 !important;
+}
+
+/* Sub-surfaces, Chips, and Table Headers in Midnight */
+.midnight [class*="bg-slate-50"],
+.midnight [class*="bg-slate-100"],
+.midnight [class*="bg-[#F8F9FA]"],
+.midnight .bg-\[\#F8F9FA\]\/90,
+.midnight .bg-\[\#F8F9FA\]\/80 {
+  background-color: #162032 !important;
+  color: #E2E8F0 !important;
+}
+
+/* Interactive Hovers in Midnight */
+.midnight [class*="hover:bg-slate-50"]:hover,
+.midnight [class*="hover:bg-slate-100"]:hover,
+.midnight [class*="hover:bg-blue-50"]:hover {
+  background-color: #1E293B !important;
+}
+
+/* Table Specific Enhancements in Midnight */
+.midnight table thead {
+  background-color: #162032 !important;
+  border-color: #1E293B !important;
+}
+
+.midnight table thead th {
+  color: #94A3B8 !important;
+}
+
+.midnight table tbody tr {
+  border-color: #1E293B !important;
+  background-color: #111827 !important;
+}
+
+.midnight table tbody tr:hover {
+  background-color: #172238 !important;
+}
+
+.midnight table td {
+  color: #E2E8F0 !important;
+}
+
+/* Inputs & Search Toolbar in Midnight */
+.midnight input {
+  background-color: #162032 !important;
+  border-color: #1E293B !important;
+  color: #F1F5F9 !important;
+}
+
+.midnight input::placeholder {
+  color: #64748B !important;
+}
+
+.midnight input:focus-visible {
+  border-color: #38BDF8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Dialog & Dropdown Overlays in Midnight */
+.midnight [role="dialog"],
+.midnight [data-radix-popper-content-wrapper] [class*="rounded-lg"] {
+  background-color: #111827 !important;
+  border-color: #1E293B !important;
+  color: #F1F5F9 !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7) !important;
+}
+
+.midnight [role="menuitem"]:hover,
+.midnight [role="menuitem"]:focus {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+}
+
+/* Skeleton Loading in Midnight */
+.midnight .animate-pulse {
+  background-color: #1E293B !important;
+}
+
+/* Scrollbar in Midnight */
+.midnight ::-webkit-scrollbar-track {
+  background: #0B0F19;
+}
+.midnight ::-webkit-scrollbar-thumb {
+  background: #1E293B;
+}
+.midnight ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ==========================================================================
+   CLASSIC DARK THEME ENHANCEMENTS
+   ========================================================================== */
+.dark body,
+.dark [class*="bg-[#F6F7F9]"],
+.dark .bg-\[\#F6F7F9\] {
+  background-color: #090D16 !important;
+  color: #F8FAFC !important;
+}
+
+.dark header,
+.dark .glass-nav,
+.dark footer {
+  background-color: rgba(9, 13, 22, 0.9) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+.dark .bg-white,
+.dark [class*="bg-white/"] {
+  background-color: #0F172A !important;
+  color: #F8FAFC !important;
+}
+
+.dark .border-slate-200,
+.dark [class*="border-slate-200"],
+.dark [class*="border-slate-100"] {
+  border-color: #1E293B !important;
+}
+
+.dark [class*="text-slate-900"],
+.dark [class*="text-slate-800"] {
+  color: #F8FAFC !important;
+}
+
+.dark [class*="text-slate-700"],
+.dark [class*="text-slate-600"],
+.dark [class*="text-slate-500"] {
+  color: #94A3B8 !important;
+}
+
+.dark [class*="bg-slate-50"],
+.dark [class*="bg-slate-100"],
+.dark [class*="bg-[#F8F9FA]"] {
+  background-color: #1E293B !important;
+  color: #E2E8F0 !important;
+}
+
+.dark [class*="hover:bg-slate-50"]:hover,
+.dark [class*="hover:bg-slate-100"]:hover,
+.dark [class*="hover:bg-blue-50"]:hover {
+  background-color: #334155 !important;
+}
+
+.dark table thead {
+  background-color: #1E293B !important;
+}
+
+.dark table tbody tr {
+  background-color: #0F172A !important;
+  border-color: #1E293B !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: #1E293B !important;
+}
+
+.dark input {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
 }

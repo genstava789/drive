@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { UserNav } from "@/components/auth/user-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Heart } from "lucide-react";
 
 interface AccountLayoutProps {
@@ -27,8 +28,11 @@ export default async function AccountLayout({
             </span>
           </Link>
 
-          {/* User Profile & Multi-Account Navigation */}
-          <UserNav accountIndex={accountIndex} />
+          {/* Right Header Controls: Theme Switcher & Multi-Account Navigation */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <ThemeToggle />
+            <UserNav accountIndex={accountIndex} />
+          </div>
         </div>
       </header>
 

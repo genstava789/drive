@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/auth/session-provider";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -34,10 +35,18 @@ export default function RootLayout({
   return (
     <html
       lang="id"
+      suppressHydrationWarning
       className={`${plusJakarta.variable} ${outfit.variable} antialiased`}
     >
-      <body className="min-h-screen bg-[#F6F7F9] text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-900">
-        <SessionProvider>{children}</SessionProvider>
+      <body className="min-h-screen bg-[#F6F7F9] text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-900 transition-colors duration-200">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          themes={["light", "midnight", "dark"]}
+        >
+          <SessionProvider>{children}</SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
