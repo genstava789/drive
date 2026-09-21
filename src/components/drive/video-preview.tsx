@@ -57,7 +57,7 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
 
   // Extract video format & resolution info from filename
   const fileNameLower = file.name.toLowerCase();
-  const formatMatch = file.name.match(/\.(mp4|mkv|webm|mov|avi|wmv|flv|m4v|ts)$/i);
+  const formatMatch = file.name.match(/\.(mp4|mkv|webm|mov|avi|wmv|flv|m4v|ts|m2ts|3gp|vob)$/i);
   const videoFormat = formatMatch ? formatMatch[1].toUpperCase() : "VIDEO";
 
   const resolution = fileNameLower.includes("2160p") || fileNameLower.includes("4k")
@@ -71,47 +71,56 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
     : null;
 
   // 1. COLLAPSED STATE (Default):
-  // Clean UI Card with poster and play icon. No title or badges sitting above it.
+  // Harmonious UI card matching the existing image preview card styling
   if (!isOpen) {
     return (
       <div
         onClick={() => setIsOpen(true)}
-        className="group relative aspect-video sm:aspect-[21/9] md:aspect-video w-full cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/90 bg-slate-950 shadow-xs flex items-center justify-center select-none transition-all hover:border-blue-400 hover:shadow-md"
+        className="relative group rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50/80 max-h-72 sm:max-h-80 flex items-center justify-center p-2 cursor-pointer select-none transition hover:border-blue-300"
         title="Klik untuk membuka pemutar video (Open Video)"
       >
         {posterUrl ? (
-          <>
+          <div className="relative max-h-64 sm:max-h-72 w-full flex items-center justify-center overflow-hidden rounded-lg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={posterUrl}
               alt={file.name}
-              className="w-full h-full object-cover opacity-75 group-hover:opacity-85 group-hover:scale-105 transition-all duration-300"
+              className="max-h-60 sm:max-h-68 w-auto object-contain rounded-lg shadow-2xs group-hover:opacity-95 group-hover:scale-102 transition duration-300"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/50 group-hover:from-black/75 transition-colors" />
-          </>
+            <div className="absolute inset-0 bg-black/15 group-hover:bg-black/25 transition-colors rounded-lg" />
+          </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(37,99,235,0.2),transparent_70%)]" />
+          <div className="h-56 w-full rounded-lg bg-slate-900 flex items-center justify-center">
+            <Video className="h-12 w-12 text-slate-700" />
           </div>
         )}
 
-        {/* Centered Glowing Play Button & "Open Video" Pill */}
-        <div className="relative z-10 flex flex-col items-center gap-2.5 sm:gap-3">
-          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-900/50 ring-4 ring-white/25 group-hover:scale-110 group-hover:bg-blue-500 transition-all duration-300">
-            <Play className="h-6 w-6 sm:h-7 sm:w-7 fill-white ml-0.5 text-white" />
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-slate-900/90 px-4 py-1.5 text-xs sm:text-sm font-semibold text-white backdrop-blur shadow-lg border border-white/10 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all">
-            <span>Open Video</span>
+        {/* Centered Glowing Play Button */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex h-13 w-13 sm:h-15 sm:w-15 items-center justify-center rounded-full bg-blue-600/95 text-white shadow-xl shadow-blue-900/40 ring-4 ring-white/30 group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-300">
+            <Play className="h-6 w-6 sm:h-6.5 sm:w-6.5 fill-white ml-0.5 text-white" />
           </div>
         </div>
+
+        {/* Bottom-right Floating Pill Button "Open Video" */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
+          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-slate-900/85 text-white text-[11px] font-semibold px-3.5 py-1.5 backdrop-blur shadow-md hover:bg-blue-600 transition cursor-pointer"
+        >
+          <Play className="h-3 w-3 fill-white" />
+          <span>Open Video</span>
+        </button>
       </div>
     );
   }
 
   // 2. OPEN STATE:
-  // Both the video player AND the title element, quality badge, format badge, and size badge are now displayed together!
+  // Both the video player AND the title element, quality badge, format badge, and size badge are displayed together!
   return (
-    <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-xs transition-all w-full">
+    <div className="rounded-xl overflow-hidden border border-slate-200/90 bg-white shadow-xs transition-all w-full">
       {/* Header Info: Title & Quality Badges (Clean, Mobile-Friendly, No Truncation) */}
       <div className="p-3 sm:p-3.5 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between gap-2.5">
         <div className="flex items-start gap-2.5 min-w-0 flex-1">

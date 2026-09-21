@@ -53,13 +53,9 @@ export function FileDetailView({
   const isVideo =
     category === "video" ||
     file.mimeType.startsWith("video/") ||
-    /\.(mp4|mkv|webm|mov|avi|wmv|flv|m4v|ts|ogv)$/i.test(file.name);
-
-  const isImage =
-    !isVideo &&
-    (category === "image" ||
-      file.mimeType.startsWith("image/") ||
-      !!file.thumbnailLink);
+    file.mimeType.includes("video") ||
+    file.mimeType.includes("matroska") ||
+    /\.(mp4|mkv|webm|mov|avi|wmv|flv|m4v|ts|ogv|m2ts|3gp|vob)$/i.test(file.name);
 
   const isPdf =
     category === "pdf" ||
@@ -71,6 +67,15 @@ export function FileDetailView({
     file.mimeType === "text/x-markdown" ||
     file.name.toLowerCase().endsWith(".md") ||
     file.name.toLowerCase().endsWith(".markdown");
+
+  const isImage =
+    !isVideo &&
+    !isPdf &&
+    !isMarkdown &&
+    (category === "image" ||
+      file.mimeType.startsWith("image/") ||
+      /\.(png|jpg|jpeg|webp|gif|svg|bmp|ico|tiff|heic|avif)$/i.test(file.name));
+
 
   const downloadUrl = getDownloadUrl(file.id, file.name);
 

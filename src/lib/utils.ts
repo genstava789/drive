@@ -92,7 +92,9 @@ export function getFileCategory(mimeType: string, fileName?: string): string {
   // Videos
   if (
     mime.startsWith("video/") ||
-    ["mp4", "mkv", "mov", "avi", "webm", "wmv", "flv", "m4v"].includes(ext)
+    mime.includes("video") ||
+    mime.includes("matroska") ||
+    ["mp4", "mkv", "mov", "avi", "webm", "wmv", "flv", "m4v", "ts", "m2ts", "3gp", "vob"].includes(ext)
   ) {
     return "video";
   }
