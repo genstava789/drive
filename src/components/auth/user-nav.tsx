@@ -39,11 +39,24 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
   const router = useRouter();
   const [guideOpen, setGuideOpen] = useState(false);
   const [accounts, setAccounts] = useState<GoogleAccount[]>([]);
+  const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>([]);
+
+  // Fetch accounts from server-side store (multi-device & serverless persistent accounts)
+  useEffect(() => {
+    fetch("/api/auth/accounts")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.accounts && Array.isArray(data.accounts)) {
+          setServerAccounts(data.accounts);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Collect and filter available accounts
   useEffect(() => {
     const updateAccounts = () => {
-      setAccounts(getActiveAccounts(session));
+      setAccounts(getActiveAccounts(session, serverAccounts));
     };
 
     updateAccounts();
@@ -52,7 +65,7 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     return () => {
       window.removeEventListener("levidrive_accounts_changed", updateAccounts);
     };
-  }, [session]);
+  }, [session, serverAccounts]);
 
   const activeAccount = accounts[accountIndex] || accounts[0];
 
@@ -67,13 +80,24 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     });
   };
 
-  const handleLogoutSingleAccount = (
+  const handleLogoutSingleAccount = async (
     e: React.MouseEvent,
     account: GoogleAccount,
     idx: number
   ) => {
     e.stopPropagation();
     removeAccountById(account.id || account.email);
+
+    // Also remove from server-side store so other devices reflect the logout
+    try {
+      await fetch(
+        `/api/auth/accounts?id=${encodeURIComponent(account.id || account.email)}`,
+        { method: "DELETE" }
+      );
+      setServerAccounts((prev) =>
+        prev.filter((a) => a.id !== account.id && a.email !== account.email)
+      );
+    } catch (_) {}
 
     if (session?.user && accounts.length <= 1) {
       signOut({ redirect: false });

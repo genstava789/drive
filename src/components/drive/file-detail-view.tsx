@@ -133,30 +133,36 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
         </Link>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
           <Link
             href={`/${accountIndex}`}
-            className="hover:text-blue-600 font-medium whitespace-nowrap"
+            className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
           >
             My Drive
           </Link>
-          <span>/</span>
-          <span className="font-semibold text-slate-900 truncate max-w-[200px] sm:max-w-md">
+          <span className="shrink-0">/</span>
+          <span
+            className="font-semibold text-slate-900 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"
+            title={file.name}
+          >
             {file.name}
           </span>
         </div>
       </div>
 
       {/* Main File Card */}
-      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4">
+      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4 overflow-hidden w-full max-w-full">
         {/* Header with Icon, Title, and Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div className="flex items-start gap-2.5 min-w-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100 min-w-0 w-full">
+          <div className="flex items-start gap-2.5 min-w-0 w-full sm:w-auto flex-1">
             <div className="mt-0.5 shrink-0">
               <FileTypeIcon mimeType={file.mimeType} size={24} />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 break-words leading-tight">
+            <div className="min-w-0 flex-1">
+              <h1
+                className="text-sm sm:text-base font-bold text-slate-900 break-words break-all [overflow-wrap:anywhere] leading-tight"
+                title={file.name}
+              >
                 {file.name}
               </h1>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -262,7 +268,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
         {isMarkdown && <MarkdownPreview file={file} />}
 
         {/* Metadata Rows List */}
-        <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden metadata-list">
+        <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden metadata-list w-full">
           {metadataItems.map((item) => {
             const Icon = item.icon;
             const isCopied = copiedField === item.id;
@@ -270,16 +276,16 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
             return (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-2.5 sm:px-3.5 gap-2 hover:bg-slate-50/90 transition-colors metadata-row"
+                className="flex items-center justify-between p-2.5 sm:px-3.5 gap-2 hover:bg-slate-50/90 transition-colors metadata-row min-w-0"
               >
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-500 shrink-0 min-w-[110px] sm:min-w-[140px] metadata-label">
-                  <Icon className="h-3.5 w-3.5 text-slate-400 metadata-icon" />
-                  <span className="text-[11px] sm:text-xs">{item.label}</span>
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-500 shrink-0 min-w-[95px] sm:min-w-[140px] metadata-label">
+                  <Icon className="h-3.5 w-3.5 text-slate-400 metadata-icon shrink-0" />
+                  <span className="text-[11px] sm:text-xs truncate">{item.label}</span>
                 </div>
 
                 <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
                   <span
-                    className={`text-xs text-slate-900 truncate metadata-value ${
+                    className={`text-xs text-slate-900 truncate break-all metadata-value ${
                       item.isMono ? "font-mono text-[10px] sm:text-[11px]" : "font-medium"
                     }`}
                     title={item.value}
@@ -305,14 +311,14 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
         </div>
 
         {/* Direct Download URL Card */}
-        <div className="file-download-card rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-1.5">
+        <div className="file-download-card rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-1.5 overflow-hidden w-full">
           <div className="flex items-center justify-between text-xs">
-            <span className="file-download-title font-semibold text-blue-900 flex items-center gap-1.5 text-[11px] sm:text-xs">
-              <Download className="file-download-icon h-3.5 w-3.5 text-blue-600" /> Link Download Langsung
+            <span className="file-download-title font-semibold text-blue-900 flex items-center gap-1.5 text-[11px] sm:text-xs shrink-0">
+              <Download className="file-download-icon h-3.5 w-3.5 text-blue-600 shrink-0" /> Link Download Langsung
             </span>
             <button
               onClick={() => copyToClipboard(downloadUrl, "directUrl")}
-              className="file-download-btn text-blue-700 hover:text-blue-800 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+              className="file-download-btn text-blue-700 hover:text-blue-800 text-[11px] font-medium flex items-center gap-1 cursor-pointer shrink-0"
             >
               {copiedField === "directUrl" ? (
                 <>
@@ -325,7 +331,7 @@ export function FileDetailView({ file, accountIndex }: FileDetailViewProps) {
               )}
             </button>
           </div>
-          <p className="file-download-box font-mono text-[10px] sm:text-[11px] text-slate-600 truncate bg-white/80 border border-blue-100/80 rounded-md px-2.5 py-1">
+          <p className="file-download-box font-mono text-[10px] sm:text-[11px] text-slate-600 truncate break-all bg-white/80 border border-blue-100/80 rounded-md px-2.5 py-1 min-w-0">
             {downloadUrl}
           </p>
         </div>

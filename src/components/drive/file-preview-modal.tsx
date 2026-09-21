@@ -30,9 +30,11 @@ export function FilePreviewModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <FileTypeIcon mimeType={file.mimeType} size={22} />
-            <DialogTitle className="text-base font-bold text-slate-900 truncate">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="shrink-0">
+              <FileTypeIcon mimeType={file.mimeType} size={22} />
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900 truncate min-w-0 flex-1" title={file.name}>
               {file.name}
             </DialogTitle>
           </div>

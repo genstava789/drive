@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     // If single item lookup requested
     if (itemId) {
-      const item = await getDriveItemById(itemId, accessToken);
+      const item = await getDriveItemById(itemId, accessToken, accountIndex);
       if (!item) {
         return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
       }

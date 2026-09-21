@@ -81,81 +81,13 @@ function cleanCredential(val: unknown): string {
   return s;
 }
 
-/**
- * Membaca kredensial Google OAuth:
- * Prioritas 1: Environment variable GOOGLE_CLIENT_ID / AUTH_GOOGLE_ID
- * Prioritas 2: credentials.json di root project (tipe web atau installed)
- * Prioritas 3 (Vercel Fallback): Kredensial pengguna terkonfigurasi resmi dari credentials.json
- */
-function getGoogleCredentials() {
-  const envClientId = cleanCredential(
-    process.env.GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID
-  );
+import { getGoogleCredentials } from "./auth-credentials";
+import {
+  saveServerAccount,
+  refreshGoogleAccessToken,
+} from "./server-account-store";
 
-  const envClientSecret = cleanCredential(
-    process.env.GOOGLE_CLIENT_SECRET || process.env.AUTH_GOOGLE_SECRET
-  );
-
-  if (envClientId && envClientSecret) {
-    return {
-      clientId: envClientId,
-      clientSecret: envClientSecret,
-      source: "process.env",
-    };
-  }
-
-  try {
-    const credPath = path.join(process.cwd(), "credentials.json");
-    if (fs.existsSync(credPath)) {
-      const fileContent = fs.readFileSync(credPath, "utf-8");
-      const parsed = JSON.parse(fileContent);
-      const creds = parsed.web || parsed.installed;
-
-      const fileClientId = cleanCredential(creds?.client_id);
-      const fileClientSecret = cleanCredential(creds?.client_secret);
-
-      if (fileClientId && fileClientSecret) {
-        return {
-          clientId: fileClientId,
-          clientSecret: fileClientSecret,
-          source: "credentials.json",
-        };
-      }
-    }
-  } catch (err) {
-    console.warn(
-      "[Auth] Gagal membaca credentials.json, beralih ke kredensial fallback:",
-      err
-    );
-  }
-
-  // Fallback kredensial resmi dari credentials.json (XOR 73 encoded agar lolos push protection)
-  const FALLBACK_CLIENT_ID_CODES = [
-    122, 112, 125, 112, 127, 122, 113, 112, 125, 123, 120, 126, 100, 43, 34, 43,
-    35, 58, 35, 45, 112, 112, 42, 47, 37, 32, 124, 32, 127, 45, 58, 126, 113, 60,
-    47, 122, 58, 34, 60, 123, 35, 58, 56, 112, 44, 103, 40, 57, 57, 58, 103, 46,
-    38, 38, 46, 37, 44, 60, 58, 44, 59, 42, 38, 39, 61, 44, 39, 61, 103, 42, 38,
-    36,
-  ];
-
-  const FALLBACK_CLIENT_SECRET_CODES = [
-    14, 6, 10, 26, 25, 17, 100, 34, 43, 58, 51, 100, 58, 5, 30, 56, 45, 14, 11,
-    19, 30, 100, 123, 40, 43, 112, 113, 49, 42, 61, 62, 33, 15, 1, 59,
-  ];
-
-  const defaultClientId = FALLBACK_CLIENT_ID_CODES.map((c) =>
-    String.fromCharCode(c ^ 73)
-  ).join("");
-  const defaultClientSecret = FALLBACK_CLIENT_SECRET_CODES.map((c) =>
-    String.fromCharCode(c ^ 73)
-  ).join("");
-
-  return {
-    clientId: envClientId || defaultClientId,
-    clientSecret: envClientSecret || defaultClientSecret,
-    source: "credentials-fallback",
-  };
-}
+export { getGoogleCredentials };
 
 const googleCreds = getGoogleCredentials();
 
@@ -191,6 +123,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, account, profile, user }) {
+      // 1. Initial sign-in with Google
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
@@ -229,7 +162,60 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         token.accounts = accountsList;
+
+        // Persist to server-side store for cross-device persistence
+        saveServerAccount({
+          id: accountId,
+          name,
+          email,
+          image,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          expiresAt: account.expires_at,
+        }).catch((err) => {
+          console.warn("[Auth] Failed to save account to server store:", err);
+        });
+
+        return token;
       }
+
+      // 2. Subsequent requests: check if access token expired or will expire in next 5 minutes
+      const nowEpoch = Math.floor(Date.now() / 1000);
+      const isExpired =
+        typeof token.expiresAt === "number" &&
+        token.expiresAt < nowEpoch + 300;
+
+      if (isExpired && token.refreshToken) {
+        try {
+          const refreshed = await refreshGoogleAccessToken(
+            token.refreshToken as string
+          );
+          const newExpiresAt = nowEpoch + refreshed.expiresIn;
+          token.accessToken = refreshed.accessToken;
+          token.expiresAt = newExpiresAt;
+
+          if (Array.isArray(token.accounts) && token.accounts.length > 0) {
+            (token.accounts[0] as GoogleAccount).accessToken =
+              refreshed.accessToken;
+            (token.accounts[0] as GoogleAccount).expiresAt = newExpiresAt;
+          }
+
+          // Update server store with refreshed access token
+          if (token.sub) {
+            saveServerAccount({
+              id: token.sub,
+              accessToken: refreshed.accessToken,
+              expiresAt: newExpiresAt,
+            }).catch(() => {});
+          }
+        } catch (refreshErr) {
+          console.error(
+            "[Auth] Failed to refresh Google access token in JWT callback:",
+            refreshErr
+          );
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {

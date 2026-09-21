@@ -23,7 +23,7 @@ export default async function DriveItemPage({ params }: DriveItemPageProps) {
   }
 
   // Look up item by Google Drive ID
-  const item = await getDriveItemById(driveId, accessToken);
+  const item = await getDriveItemById(driveId, accessToken, accountIndex);
 
   const isFolder =
     item?.mimeType === "application/vnd.google-apps.folder" ||

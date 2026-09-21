@@ -149,11 +149,11 @@ export function DriveGrid({
                 onMouseEnter={() => router.prefetch(`/${accountIndex}/${folder.id}`)}
                 className="group flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all duration-150 cursor-pointer"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <div className="shrink-0 transition-transform group-hover:scale-110">
                     <FileTypeIcon mimeType={folder.mimeType} fileName={folder.name} size={20} />
                   </div>
-                  <span className="truncate text-xs font-semibold text-slate-800 group-hover:text-blue-600">
+                  <span className="truncate text-xs font-semibold text-slate-800 group-hover:text-blue-600 min-w-0 flex-1">
                     {folder.name}
                   </span>
                 </div>
@@ -255,9 +255,9 @@ export function DriveGrid({
                     <div className="my-2" />
                   )}
 
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 min-w-0 w-full">
                     <p
-                      className="text-xs font-semibold text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight"
+                      className="text-xs font-semibold text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight break-words [overflow-wrap:anywhere]"
                       title={file.name}
                     >
                       {file.name}

@@ -8,14 +8,27 @@ import {
   findMockItemById,
 } from "./mock-data";
 
+import {
+  getValidAccessTokenForAccount,
+  getServerAccounts,
+} from "./server-account-store";
+
 export async function getDriveFiles(
   accessToken?: string | null,
   folderId = "root",
   accountIndex = 0,
   forceMock = false
 ): Promise<DriveResponse> {
-  // If no access token is available or forceMock is requested, return mock data
-  if (!accessToken || forceMock) {
+  // Check if we can use server-stored valid token if none provided in browser session
+  let effectiveToken = accessToken;
+  if (!effectiveToken && !forceMock) {
+    try {
+      effectiveToken = await getValidAccessTokenForAccount(accountIndex);
+    } catch (_) {}
+  }
+
+  // If still no access token is available or forceMock is requested, return mock data
+  if (!effectiveToken || forceMock) {
     let files: DriveFile[] = [];
 
     if (folderId === "root") {
@@ -51,12 +64,27 @@ export async function getDriveFiles(
     url.searchParams.set("pageSize", "100");
     url.searchParams.set("orderBy", "folder,name");
 
-    const response = await fetch(url.toString(), {
+    let response = await fetch(url.toString(), {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${effectiveToken}`,
       },
       next: { revalidate: 15 },
     });
+
+    // Auto-retry once with refreshed token if 401 Unauthorized
+    if (response.status === 401) {
+      console.warn("[GoogleDrive] 401 Unauthorized encountered, attempting token refresh...");
+      const refreshedToken = await getValidAccessTokenForAccount(accountIndex);
+      if (refreshedToken && refreshedToken !== effectiveToken) {
+        effectiveToken = refreshedToken;
+        response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${effectiveToken}`,
+          },
+          next: { revalidate: 15 },
+        });
+      }
+    }
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -128,22 +156,43 @@ export async function getDriveFiles(
 
 export async function getDriveItemById(
   id: string,
-  accessToken?: string | null
+  accessToken?: string | null,
+  accountIndex = 0
 ): Promise<DriveFile | null> {
   if (!id) return null;
 
+  let effectiveToken = accessToken;
+  if (!effectiveToken) {
+    try {
+      effectiveToken = await getValidAccessTokenForAccount(accountIndex);
+    } catch (_) {}
+  }
+
   // Real Google Drive API lookup
-  if (accessToken) {
+  if (effectiveToken) {
     try {
       const fields =
         "id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink, iconLink, thumbnailLink, shared, owners, parents, description";
       const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=${encodeURIComponent(fields)}`;
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${effectiveToken}`,
         },
         next: { revalidate: 30 },
       });
+
+      if (response.status === 401) {
+        const refreshed = await getValidAccessTokenForAccount(accountIndex);
+        if (refreshed && refreshed !== effectiveToken) {
+          effectiveToken = refreshed;
+          response = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${effectiveToken}`,
+            },
+            next: { revalidate: 30 },
+          });
+        }
+      }
 
       if (response.ok) {
         const file = await response.json();

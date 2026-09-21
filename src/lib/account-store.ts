@@ -46,21 +46,38 @@ export function filterAvailableAccounts(
   return rawAccounts.filter((a) => !removed.includes(a.id || a.email));
 }
 
-export function getActiveAccounts(session: any): GoogleAccount[] {
+export function getActiveAccounts(
+  session: any,
+  serverAccounts: GoogleAccount[] = []
+): GoogleAccount[] {
   const isRealAuth = !!session?.user;
-  const rawAccounts =
-    isRealAuth && session?.accounts && session.accounts.length > 0
-      ? session.accounts
-      : isRealAuth && session?.user
-      ? [
-          {
-            id: session.user.id || "primary",
-            name: session.user.name || "Akun Google",
-            email: session.user.email || "",
-            image: session.user.image || undefined,
-          },
-        ]
-      : MOCK_ACCOUNTS;
+  let rawAccounts: GoogleAccount[] = [];
+
+  if (isRealAuth && session?.accounts && session.accounts.length > 0) {
+    rawAccounts = [...session.accounts];
+  } else if (isRealAuth && session?.user) {
+    rawAccounts = [
+      {
+        id: session.user.id || "primary",
+        name: session.user.name || "Akun Google",
+        email: session.user.email || "",
+        image: session.user.image || undefined,
+      },
+    ];
+  } else if (serverAccounts && serverAccounts.length > 0) {
+    rawAccounts = [...serverAccounts];
+  } else {
+    rawAccounts = [...MOCK_ACCOUNTS];
+  }
+
+  // If serverAccounts has additional accounts not in current browser session, merge them
+  if (serverAccounts && serverAccounts.length > 0 && rawAccounts !== MOCK_ACCOUNTS) {
+    for (const sa of serverAccounts) {
+      if (!rawAccounts.some((a) => a.email === sa.email || a.id === sa.id)) {
+        rawAccounts.push(sa);
+      }
+    }
+  }
 
   return filterAvailableAccounts(rawAccounts);
 }
