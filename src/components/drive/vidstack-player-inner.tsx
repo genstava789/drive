@@ -34,9 +34,19 @@ export function VidstackPlayerInner({
 }: VidstackPlayerProps) {
   const playerRef = useRef<MediaPlayerInstance>(null);
 
-  const mediaSource = mimeType
-    ? { src, type: mimeType as any }
-    : src;
+  // Normalize MIME types for Vidstack compatibility
+  // Vidstack's VideoProvider natively recognizes: video/mp4, video/webm, video/3gp, video/ogg, video/avi, video/mpeg.
+  // Google Drive returns 'video/matroska' or 'video/x-matroska' for MKV files, which Vidstack rejects unless normalized.
+  const isMkv =
+    Boolean(mimeType?.includes("matroska")) ||
+    Boolean(title?.toLowerCase().endsWith(".mkv")) ||
+    Boolean(src.toLowerCase().includes(".mkv"));
+
+  const effectiveMimeType = isMkv
+    ? "video/webm"
+    : mimeType || "video/mp4";
+
+  const mediaSource = { src, type: effectiveMimeType as any };
 
   return (
     <div

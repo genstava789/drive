@@ -40,7 +40,12 @@ export async function HEAD(request: NextRequest) {
     const metadata = await metaRes.json();
     const headers = new Headers();
     headers.set("Accept-Ranges", "bytes");
-    headers.set("Content-Type", metadata.mimeType || "video/mp4");
+
+    let mimeType = metadata.mimeType || "video/mp4";
+    if (mimeType.includes("matroska") || metadata.name?.toLowerCase().endsWith(".mkv")) {
+      mimeType = "video/webm";
+    }
+    headers.set("Content-Type", mimeType);
     if (metadata.size) {
       headers.set("Content-Length", String(metadata.size));
     }
@@ -127,8 +132,11 @@ export async function GET(request: NextRequest) {
     );
 
     // Forward crucial video streaming headers
-    const contentType =
+    let contentType =
       googleRes.headers.get("content-type") || "video/mp4";
+    if (contentType.includes("matroska")) {
+      contentType = "video/webm";
+    }
     responseHeaders.set("Content-Type", contentType);
 
     const contentRange = googleRes.headers.get("content-range");
