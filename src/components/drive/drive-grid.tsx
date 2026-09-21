@@ -42,19 +42,28 @@ export function DriveGrid({
     const parentId =
       currentBreadcrumbs?.[currentBreadcrumbs.length - 1]?.id || "root";
     if (isFolder) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("drive_navigating_id", file.id);
+        sessionStorage.setItem("drive_navigating_type", "folder");
+      }
       recordFolderNavigation(
         currentBreadcrumbs || [{ id: "root", name: "My Drive" }],
         { id: file.id, name: file.name }
       );
-    } else if (typeof window !== "undefined") {
-      sessionStorage.setItem(`drive_type_${file.id}`, "file");
-      sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
-      sessionStorage.setItem(
-        `drive_breadcrumbs_${file.id}`,
-        JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
-      );
+      router.push(`/${accountIndex}/${file.id}?type=folder`);
+    } else {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("drive_navigating_id", file.id);
+        sessionStorage.setItem("drive_navigating_type", "file");
+        sessionStorage.setItem(`drive_type_${file.id}`, "file");
+        sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
+        sessionStorage.setItem(
+          `drive_breadcrumbs_${file.id}`,
+          JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
+        );
+      }
+      router.push(`/${accountIndex}/${file.id}`);
     }
-    router.push(`/${accountIndex}/${file.id}${isFolder ? "?type=folder" : ""}`);
   };
 
   const searchedFiles = React.useMemo(() => {

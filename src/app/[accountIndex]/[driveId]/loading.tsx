@@ -15,7 +15,18 @@ export default function DriveItemLoading() {
 
   const pathParts = (pathname || "").split("/").filter(Boolean);
   const accountIndex = pathParts[0] ? parseInt(pathParts[0], 10) || 0 : 0;
-  const driveId = pathParts[1] ? decodeURIComponent(pathParts[1]) : "";
+
+  const driveId = React.useMemo(() => {
+    if (pathParts[1]) return decodeURIComponent(pathParts[1]);
+    if (typeof window !== "undefined") {
+      const locParts = window.location.pathname.split("/").filter(Boolean);
+      if (locParts[1]) return decodeURIComponent(locParts[1]);
+      const navId = sessionStorage.getItem("drive_navigating_id");
+      if (navId) return navId;
+    }
+    return "";
+  }, [pathParts]);
+
   const typeParam = searchParams?.get("type");
 
   const [isFolder, setIsFolder] = useState<boolean>(() => {
@@ -25,10 +36,16 @@ export default function DriveItemLoading() {
     if (typeParam === "file") {
       return false;
     }
-    if (typeof window !== "undefined" && driveId) {
-      const cached = sessionStorage.getItem(`drive_type_${driveId}`);
-      if (cached === "folder") return true;
-      if (cached === "file") return false;
+    if (typeof window !== "undefined") {
+      const navType = sessionStorage.getItem("drive_navigating_type");
+      if (navType === "folder") return true;
+      if (navType === "file") return false;
+
+      if (driveId) {
+        const cached = sessionStorage.getItem(`drive_type_${driveId}`);
+        if (cached === "folder") return true;
+        if (cached === "file") return false;
+      }
     }
     return false;
   });
@@ -42,12 +59,23 @@ export default function DriveItemLoading() {
       setIsFolder(false);
       return;
     }
-    if (driveId && typeof window !== "undefined") {
-      const cached = sessionStorage.getItem(`drive_type_${driveId}`);
-      if (cached === "folder") {
+    if (typeof window !== "undefined") {
+      const navType = sessionStorage.getItem("drive_navigating_type");
+      if (navType === "folder") {
         setIsFolder(true);
-      } else if (cached === "file") {
+        return;
+      }
+      if (navType === "file") {
         setIsFolder(false);
+        return;
+      }
+      if (driveId) {
+        const cached = sessionStorage.getItem(`drive_type_${driveId}`);
+        if (cached === "folder") {
+          setIsFolder(true);
+        } else if (cached === "file") {
+          setIsFolder(false);
+        }
       }
     }
   }, [driveId, typeParam]);
