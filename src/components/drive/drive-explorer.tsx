@@ -134,9 +134,13 @@ export function DriveExplorer({
     checkAccounts(false);
     const onAccountsChanged = () => checkAccounts(true);
     window.addEventListener("levidrive_accounts_changed", onAccountsChanged);
+    window.addEventListener("focus", onAccountsChanged);
+    document.addEventListener("visibilitychange", onAccountsChanged);
     return () => {
       isMounted = false;
       window.removeEventListener("levidrive_accounts_changed", onAccountsChanged);
+      window.removeEventListener("focus", onAccountsChanged);
+      document.removeEventListener("visibilitychange", onAccountsChanged);
     };
   }, [session, accountIndex, router, currentFolderId, fetchFiles]);
 

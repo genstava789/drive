@@ -85,6 +85,7 @@ import { getGoogleCredentials } from "./auth-credentials";
 import {
   saveServerAccount,
   refreshGoogleAccessToken,
+  getServerStoreState,
 } from "./server-account-store";
 
 export { getGoogleCredentials };
@@ -128,6 +129,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
+        token.signedInAt = Date.now();
 
         // Support multi-account storage in JWT token
         const accountsList: GoogleAccount[] = Array.isArray(token.accounts)
@@ -164,22 +166,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accounts = accountsList;
 
         // Persist to server-side store for cross-device persistence
-        saveServerAccount({
-          id: accountId,
-          name,
-          email,
-          image,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiresAt: account.expires_at,
-        }).catch((err) => {
+        try {
+          await saveServerAccount({
+            id: accountId,
+            name,
+            email,
+            image,
+            accessToken: account.access_token,
+            refreshToken: account.refresh_token,
+            expiresAt: account.expires_at,
+          });
+        } catch (err) {
           console.warn("[Auth] Failed to save account to server store:", err);
-        });
+        }
 
         return token;
       }
 
-      // 2. Subsequent requests: check if access token expired or will expire in next 5 minutes
+      // 2. Validate existing token against central server-side store state
+      const serverState = await getServerStoreState();
+      // If server is in logged-out state, or no accounts remain in server store:
+      if (serverState.loggedOut || !serverState.accounts || serverState.accounts.length === 0) {
+        return null;
+      }
+
+      // If this token was created before the most recent server logout:
+      if (
+        serverState.loggedOutAt &&
+        token.signedInAt &&
+        (token.signedInAt as number) < serverState.loggedOutAt
+      ) {
+        return null;
+      }
+
+      // 3. Subsequent requests: check if access token expired or will expire in next 5 minutes
       const nowEpoch = Math.floor(Date.now() / 1000);
       const isExpired =
         typeof token.expiresAt === "number" &&
@@ -219,6 +239,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      if (!token || !token.accessToken || !token.accounts || (token.accounts as GoogleAccount[]).length === 0) {
+        return {
+          ...session,
+          user: undefined,
+          accounts: [],
+          accessToken: undefined,
+        } as any;
+      }
+
       if (token?.accessToken) {
         session.accessToken = token.accessToken as string;
       }

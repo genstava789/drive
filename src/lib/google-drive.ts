@@ -3,6 +3,7 @@ import { DriveFile, DriveResponse } from "@/types/drive";
 import {
   getValidAccessTokenForAccount,
   getServerAccounts,
+  getServerStoreState,
 } from "./server-account-store";
 
 export async function getDriveFiles(
@@ -11,6 +12,19 @@ export async function getDriveFiles(
   accountIndex = 0,
   forceMock = false
 ): Promise<DriveResponse> {
+  const serverState = await getServerStoreState();
+  if (serverState.loggedOut || !serverState.accounts || serverState.accounts.length === 0) {
+    return {
+      files: [],
+      currentFolderId: folderId,
+      currentFolderName: "My Drive",
+      isMockData: false,
+      accountIndex,
+      accounts: [],
+      isAuthenticated: false,
+    };
+  }
+
   // Check if we can use server-stored valid token if none provided in browser session
   let effectiveToken = accessToken;
   if (!effectiveToken && !forceMock) {

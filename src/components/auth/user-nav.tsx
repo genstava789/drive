@@ -39,14 +39,29 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
 
   // Fetch accounts from server-side store (multi-device & serverless persistent accounts)
   useEffect(() => {
-    fetch("/api/auth/accounts")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.accounts && Array.isArray(data.accounts)) {
-          setServerAccounts(data.accounts);
-        }
-      })
-      .catch(() => {});
+    const fetchAccounts = () => {
+      fetch("/api/auth/accounts")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.accounts && Array.isArray(data.accounts)) {
+            setServerAccounts(data.accounts);
+            if (data.accounts.length === 0) {
+              setAccounts([]);
+            }
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchAccounts();
+    window.addEventListener("focus", fetchAccounts);
+    document.addEventListener("visibilitychange", fetchAccounts);
+    window.addEventListener("levidrive_accounts_changed", fetchAccounts);
+    return () => {
+      window.removeEventListener("focus", fetchAccounts);
+      document.removeEventListener("visibilitychange", fetchAccounts);
+      window.removeEventListener("levidrive_accounts_changed", fetchAccounts);
+    };
   }, []);
 
   // Collect and filter available accounts
@@ -76,6 +91,19 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     });
   };
 
+  const handleLogoutAllAccounts = async () => {
+    try {
+      await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
+    } catch (_) {}
+    try {
+      await signOut({ redirect: false });
+    } catch (_) {}
+    setAccounts([]);
+    setServerAccounts([]);
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
+    window.location.href = "/0";
+  };
+
   const handleLogoutSingleAccount = async (
     e: React.MouseEvent,
     account: GoogleAccount,
@@ -84,40 +112,24 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     e.stopPropagation();
     removeAccountById(account.id || account.email);
 
-    // Also remove from server-side store so other devices reflect the logout
+    if (accounts.length <= 1) {
+      await handleLogoutAllAccounts();
+      return;
+    }
+
     try {
       await fetch(
         `/api/auth/accounts?id=${encodeURIComponent(account.id || account.email)}`,
         { method: "DELETE" }
       );
-      if (accounts.length <= 1) {
-        await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
-      }
       setServerAccounts((prev) =>
         prev.filter((a) => a.id !== account.id && a.email !== account.email)
       );
     } catch (_) {}
 
-    if (accounts.length <= 1) {
-      signOut({ redirect: false });
-      setAccounts([]);
-      setServerAccounts([]);
-      window.dispatchEvent(new Event("levidrive_accounts_changed"));
-    }
-
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
     const nextIdx = idx === accountIndex ? 0 : accountIndex > idx ? accountIndex - 1 : accountIndex;
     router.push(`/${nextIdx}`);
-  };
-
-  const handleLogoutAllAccounts = async () => {
-    try {
-      await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
-    } catch (_) {}
-    signOut({ redirect: false });
-    setAccounts([]);
-    setServerAccounts([]);
-    window.dispatchEvent(new Event("levidrive_accounts_changed"));
-    router.push("/0");
   };
 
   return (

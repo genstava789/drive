@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getDriveFiles, getDriveItemById } from "@/lib/google-drive";
+import { getServerStoreState } from "@/lib/server-account-store";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,20 @@ export async function GET(request: NextRequest) {
     const accountIndexParam = searchParams.get("accountIndex") || "0";
     const accountIndex = parseInt(accountIndexParam, 10) || 0;
     const forceMock = searchParams.get("demo") === "true";
+
+    // 1. Authoritative check: if server store is in logged-out state or empty, reject immediately
+    const serverState = await getServerStoreState();
+    if (serverState.loggedOut || !serverState.accounts || serverState.accounts.length === 0) {
+      return NextResponse.json({
+        files: [],
+        currentFolderId: folderId,
+        currentFolderName: "My Drive",
+        isMockData: false,
+        accountIndex,
+        accounts: [],
+        isAuthenticated: false,
+      });
+    }
 
     const session = await auth();
 

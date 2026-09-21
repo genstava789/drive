@@ -45,19 +45,50 @@ export async function GET() {
 export async function DELETE(req: NextRequest) {
   try {
     const isAll = req.nextUrl.searchParams.get("all") === "true";
-    if (isAll) {
-      await clearAllServerAccounts();
-      return NextResponse.json({ success: true, clearedAll: true });
-    }
-
     const id = req.nextUrl.searchParams.get("id");
-    if (!id) {
+    if (isAll || !id) {
       await clearAllServerAccounts();
-      return NextResponse.json({ success: true, clearedAll: true });
+      const response = NextResponse.json({ success: true, clearedAll: true });
+      // WIPE ALL SESSION COOKIES DIRECTLY IN HTTP HEADERS ACROSS ALL VARIANTS
+      const cookieNames = [
+        "authjs.session-token",
+        "__Secure-authjs.session-token",
+        "next-auth.session-token",
+        "__Secure-next-auth.session-token",
+        "authjs.csrf-token",
+        "next-auth.csrf-token",
+        "authjs.callback-url",
+        "next-auth.callback-url",
+      ];
+      for (const name of cookieNames) {
+        response.cookies.set(name, "", {
+          path: "/",
+          expires: new Date(0),
+          maxAge: 0,
+        });
+      }
+      return response;
     }
 
     await removeServerAccount(id);
-    return NextResponse.json({ success: true, removedId: id });
+    const accounts = await getServerAccounts();
+    const response = NextResponse.json({ success: true, removedId: id, remaining: accounts.length });
+    if (accounts.length === 0) {
+      const cookieNames = [
+        "authjs.session-token",
+        "__Secure-authjs.session-token",
+        "next-auth.session-token",
+        "__Secure-next-auth.session-token",
+      ];
+      for (const name of cookieNames) {
+        response.cookies.set(name, "", {
+          path: "/",
+          expires: new Date(0),
+          maxAge: 0,
+        });
+      }
+    }
+    return response;
   } catch (err: any) {
     console.error("DELETE /api/auth/accounts error:", err);
     return NextResponse.json(

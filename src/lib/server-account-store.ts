@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { getGoogleCredentials } from "./auth-credentials";
 
 export interface ServerAccount {
@@ -14,11 +15,30 @@ export interface ServerAccount {
   isPrimaryEnv?: boolean;
 }
 
-// In-memory cache for warm lambda / serverless execution
-let memoryCache: ServerAccount[] = [];
-let memoryCacheLoaded = false;
+export interface ServerStoreState {
+  loggedOut: boolean;
+  loggedOutAt: number; // Timestamp in milliseconds
+  accounts: ServerAccount[];
+}
 
-const LOCAL_STORAGE_FILE = path.join(process.cwd(), ".server-accounts.json");
+// In-memory cache for warm lambda / serverless execution
+let memoryState: ServerStoreState = {
+  loggedOut: false,
+  loggedOutAt: 0,
+  accounts: [],
+};
+let memoryStateLoaded = false;
+
+function getStorageFilePaths(): string[] {
+  const list: string[] = [];
+  try {
+    list.push(path.join(process.cwd(), ".server-accounts.json"));
+  } catch (_) {}
+  try {
+    list.push(path.join(os.tmpdir(), ".server-accounts.json"));
+  } catch (_) {}
+  return list;
+}
 
 /**
  * Check if external KV / Redis REST API is configured (e.g. Vercel KV or Upstash)
@@ -37,14 +57,14 @@ function getKvConfig() {
 }
 
 /**
- * Fetch accounts from KV / Redis REST API
+ * Fetch store state from KV / Redis REST API
  */
-async function fetchFromKv(): Promise<ServerAccount[] | null> {
+async function fetchStateFromKv(): Promise<ServerStoreState | null> {
   const kv = getKvConfig();
   if (!kv) return null;
 
   try {
-    const res = await fetch(`${kv.url}/get/levidrive_server_accounts`, {
+    const res = await fetch(`${kv.url}/get/levidrive_server_store_state`, {
       headers: {
         Authorization: `Bearer ${kv.token}`,
       },
@@ -57,7 +77,21 @@ async function fetchFromKv(): Promise<ServerAccount[] | null> {
 
     const parsed =
       typeof data.result === "string" ? JSON.parse(data.result) : data.result;
-    return Array.isArray(parsed) ? parsed : null;
+    if (parsed && typeof parsed === "object") {
+      if (Array.isArray(parsed)) {
+        return {
+          loggedOut: false,
+          loggedOutAt: 0,
+          accounts: parsed,
+        };
+      }
+      return {
+        loggedOut: Boolean(parsed.loggedOut),
+        loggedOutAt: Number(parsed.loggedOutAt) || 0,
+        accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+      };
+    }
+    return null;
   } catch (err) {
     console.warn("[ServerStore] KV fetch failed:", err);
     return null;
@@ -65,20 +99,20 @@ async function fetchFromKv(): Promise<ServerAccount[] | null> {
 }
 
 /**
- * Save accounts to KV / Redis REST API
+ * Save store state to KV / Redis REST API
  */
-async function saveToKv(accounts: ServerAccount[]): Promise<boolean> {
+async function saveStateToKv(state: ServerStoreState): Promise<boolean> {
   const kv = getKvConfig();
   if (!kv) return false;
 
   try {
-    const res = await fetch(`${kv.url}/set/levidrive_server_accounts`, {
+    const res = await fetch(`${kv.url}/set/levidrive_server_store_state`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${kv.token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(JSON.stringify(accounts)),
+      body: JSON.stringify(JSON.stringify(state)),
     });
     return res.ok;
   } catch (err) {
@@ -88,36 +122,58 @@ async function saveToKv(accounts: ServerAccount[]): Promise<boolean> {
 }
 
 /**
- * Read accounts from local JSON file (development / Node environments)
+ * Read store state from local storage files
  */
-function readFromLocalFile(): ServerAccount[] {
-  try {
-    if (fs.existsSync(LOCAL_STORAGE_FILE)) {
-      const content = fs.readFileSync(LOCAL_STORAGE_FILE, "utf-8");
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        return parsed;
+function readStateFromLocalFiles(): ServerStoreState | null {
+  for (const filePath of getStorageFilePaths()) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf-8");
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === "object") {
+          if (Array.isArray(parsed)) {
+            return {
+              loggedOut: false,
+              loggedOutAt: 0,
+              accounts: parsed,
+            };
+          }
+          return {
+            loggedOut: Boolean(parsed.loggedOut),
+            loggedOutAt: Number(parsed.loggedOutAt) || 0,
+            accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+          };
+        }
       }
-    }
-  } catch (err) {
-    console.warn("[ServerStore] Local file read error:", err);
+    } catch (_) {}
   }
-  return [];
+  return null;
 }
 
 /**
- * Write accounts to local JSON file
+ * Write store state to local storage files
  */
-function writeToLocalFile(accounts: ServerAccount[]) {
-  try {
-    fs.writeFileSync(
-      LOCAL_STORAGE_FILE,
-      JSON.stringify(accounts, null, 2),
-      "utf-8"
-    );
-  } catch (err) {
-    console.warn("[ServerStore] Local file write error:", err);
+function writeStateToLocalFiles(state: ServerStoreState) {
+  for (const filePath of getStorageFilePaths()) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(state, null, 2), "utf-8");
+    } catch (_) {}
   }
+}
+
+/**
+ * Write full state across memory, KV, and files
+ */
+async function persistStoreState(state: ServerStoreState): Promise<void> {
+  memoryState = {
+    loggedOut: Boolean(state.loggedOut),
+    loggedOutAt: Number(state.loggedOutAt) || 0,
+    accounts: Array.isArray(state.accounts) ? [...state.accounts] : [],
+  };
+  memoryStateLoaded = true;
+
+  writeStateToLocalFiles(memoryState);
+  await saveStateToKv(memoryState);
 }
 
 /**
@@ -143,25 +199,11 @@ export async function fetchGoogleDriveUserProfile(
   return null;
 }
 
-let userExplicitlyLoggedOut = false;
-
-export function setExplicitLogout(loggedOut: boolean) {
-  userExplicitlyLoggedOut = loggedOut;
-}
-
-export function isExplicitLoggedOut(): boolean {
-  return userExplicitlyLoggedOut;
-}
-
 /**
  * Get account provisioned directly via Environment Variables
  * (e.g. GOOGLE_REFRESH_TOKEN or REFRESH_TOKEN set on Vercel/Netlify)
  */
 export function getEnvProvisionedAccount(): ServerAccount | null {
-  if (userExplicitlyLoggedOut) {
-    return null;
-  }
-
   const refreshToken =
     process.env.GOOGLE_REFRESH_TOKEN ||
     process.env.REFRESH_TOKEN ||
@@ -184,47 +226,59 @@ export function getEnvProvisionedAccount(): ServerAccount | null {
 }
 
 /**
+ * Retrieve current store state (including loggedOut flag and timestamp)
+ */
+export async function getServerStoreState(): Promise<ServerStoreState> {
+  // 1. Try external KV first
+  const kvState = await fetchStateFromKv();
+  if (kvState) {
+    memoryState = kvState;
+    memoryStateLoaded = true;
+    return kvState;
+  }
+
+  // 2. Try in-memory if already loaded
+  if (memoryStateLoaded) {
+    return memoryState;
+  }
+
+  // 3. Try local files
+  const fileState = readStateFromLocalFiles();
+  if (fileState) {
+    memoryState = fileState;
+    memoryStateLoaded = true;
+    return fileState;
+  }
+
+  // 4. Initial state (brand new setup, never logged in, never logged out):
+  const envAcc = getEnvProvisionedAccount();
+  const initialAccounts = envAcc ? [envAcc] : [];
+
+  const initialState: ServerStoreState = {
+    loggedOut: false,
+    loggedOutAt: 0,
+    accounts: initialAccounts,
+  };
+
+  await persistStoreState(initialState);
+  return initialState;
+}
+
+/**
  * Retrieve all server-stored Google accounts
  */
 export async function getServerAccounts(): Promise<ServerAccount[]> {
-  if (userExplicitlyLoggedOut) {
+  const state = await getServerStoreState();
+  if (state.loggedOut || !state.accounts || state.accounts.length === 0) {
     return [];
   }
 
-  let accounts: ServerAccount[] = [];
-
-  // 1. Try external KV / Redis first
-  const kvAccounts = await fetchFromKv();
-  if (kvAccounts && kvAccounts.length > 0) {
-    accounts = kvAccounts;
-  } else if (memoryCacheLoaded && memoryCache.length > 0) {
-    // 2. Use in-memory cache
-    accounts = memoryCache;
-  } else {
-    // 3. Fallback to local file
-    accounts = readFromLocalFile();
-  }
-
+  let accounts = [...state.accounts];
   // Clean out any legacy placeholder emails
   accounts = accounts.filter((a) => a.email !== "admin@levidrive.com");
 
-  // 4. Merge with environment provisioned account if present
-  const envAcc = getEnvProvisionedAccount();
-  if (envAcc) {
-    const existingIdx = accounts.findIndex(
-      (a) => a.refreshToken === envAcc.refreshToken || a.isPrimaryEnv
-    );
-    if (existingIdx >= 0) {
-      accounts[existingIdx] = {
-        ...envAcc,
-        ...accounts[existingIdx],
-      };
-    } else {
-      accounts.unshift(envAcc);
-    }
-  }
-
-  // 5. Automatically resolve real Google profile from Google Drive API
+  // Automatically resolve real Google profile from Google Drive API if needed
+  let stateModified = false;
   for (const acc of accounts) {
     if ((!acc.email || acc.email === "admin@levidrive.com" || !acc.image) && acc.refreshToken) {
       try {
@@ -235,6 +289,7 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
           acc.accessToken = refreshed.accessToken;
           acc.expiresAt = nowEpoch + refreshed.expiresIn;
           token = refreshed.accessToken;
+          stateModified = true;
         }
 
         if (token) {
@@ -244,27 +299,31 @@ export async function getServerAccounts(): Promise<ServerAccount[]> {
             if (profile.emailAddress) acc.email = profile.emailAddress;
             if (profile.photoLink) acc.image = profile.photoLink;
             acc.updatedAt = Date.now();
+            stateModified = true;
           }
         }
       } catch (_) {}
     }
   }
 
-  memoryCache = accounts;
-  memoryCacheLoaded = true;
+  if (stateModified) {
+    state.accounts = accounts;
+    await persistStoreState(state);
+  }
 
   return accounts;
 }
 
 /**
- * Clear all accounts on explicit logout
+ * Clear all accounts on explicit logout and mark loggedOut: true
  */
 export async function clearAllServerAccounts(): Promise<void> {
-  userExplicitlyLoggedOut = true;
-  memoryCache = [];
-  memoryCacheLoaded = true;
-  await saveToKv([]);
-  writeToLocalFile([]);
+  const state: ServerStoreState = {
+    loggedOut: true,
+    loggedOutAt: Date.now(),
+    accounts: [],
+  };
+  await persistStoreState(state);
 }
 
 /**
@@ -273,9 +332,12 @@ export async function clearAllServerAccounts(): Promise<void> {
 export async function saveServerAccount(
   accountData: Partial<ServerAccount> & { id: string }
 ): Promise<ServerAccount> {
-  userExplicitlyLoggedOut = false;
-  const accounts = await getServerAccounts();
+  const state = await getServerStoreState();
+  // An active sign-in or save resets the loggedOut state
+  state.loggedOut = false;
+  state.loggedOutAt = 0;
 
+  const accounts = [...state.accounts];
   const email = accountData.email || "";
   const existingIndex = accounts.findIndex(
     (a) => a.id === accountData.id || (email && a.email === email)
@@ -305,15 +367,8 @@ export async function saveServerAccount(
     accounts.push(updatedAccount);
   }
 
-  memoryCache = [...accounts];
-  memoryCacheLoaded = true;
-
-  // Persist to KV if available
-  await saveToKv(accounts);
-
-  // Persist to local file in dev / node environments
-  writeToLocalFile(accounts);
-
+  state.accounts = accounts;
+  await persistStoreState(state);
   return updatedAccount;
 }
 
@@ -321,15 +376,17 @@ export async function saveServerAccount(
  * Remove an account from server-side store
  */
 export async function removeServerAccount(accountId: string): Promise<boolean> {
-  let accounts = await getServerAccounts();
-  accounts = accounts.filter(
+  const state = await getServerStoreState();
+  state.accounts = state.accounts.filter(
     (a) => a.id !== accountId && a.email !== accountId
   );
 
-  memoryCache = [...accounts];
-  await saveToKv(accounts);
-  writeToLocalFile(accounts);
+  if (state.accounts.length === 0) {
+    state.loggedOut = true;
+    state.loggedOutAt = Date.now();
+  }
 
+  await persistStoreState(state);
   return true;
 }
 
