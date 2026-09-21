@@ -40,11 +40,15 @@ import {
   FileQuestion,
   Users,
   LogIn,
+  SlidersHorizontal,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signIn } from "next-auth/react";
@@ -125,6 +129,12 @@ export function DriveTable({
     });
   };
 
+  const currentSort = sorting[0] || { id: "name", desc: false };
+
+  const setDirectSort = (columnId: string, desc: boolean) => {
+    setSorting([{ id: columnId, desc }]);
+  };
+
   const columns = useMemo<ColumnDef<DriveFile>[]>(
     () => [
       {
@@ -151,6 +161,7 @@ export function DriveTable({
         cell: ({ row }) => {
           const file = row.original;
           const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+          const category = getFileCategory(file.mimeType, file.name);
 
           return (
             <div
@@ -164,11 +175,35 @@ export function DriveTable({
                 <p className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors truncate text-xs sm:text-sm">
                   {file.name}
                 </p>
-                {/* Mobile subtitle showing size and date */}
+                {/* Mobile subtitle showing size and date with active sort emphasis */}
                 <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono sm:hidden truncate">
-                  <span>{isFolder ? "Folder" : formatBytes(file.size)}</span>
+                  <span
+                    className={
+                      currentSort.id === "size" && !isFolder
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }
+                  >
+                    {isFolder ? "Folder" : formatBytes(file.size)}
+                  </span>
                   <span>•</span>
-                  <span>{formatDate(file.modifiedTime)}</span>
+                  <span
+                    className={
+                      currentSort.id === "modifiedTime"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }
+                  >
+                    {formatDate(file.modifiedTime)}
+                  </span>
+                  {currentSort.id === "category" && (
+                    <>
+                      <span>•</span>
+                      <span className="font-semibold text-blue-600 capitalize">
+                        {category}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -478,6 +513,170 @@ export function DriveTable({
     <div className="space-y-2.5">
       {/* Table Surface Card */}
       <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+        {/* Mobile Sorting & Filter Bar - only visible on small screens */}
+        <div className="sm:hidden flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200/80 bg-[#F8F9FA]/90">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+            <span className="text-[10px] font-semibold text-slate-400 shrink-0 flex items-center gap-1 uppercase tracking-wider">
+              <ArrowUpDown className="h-3 w-3" /> Urut:
+            </span>
+
+            {/* Quick Sort Pills */}
+            {[
+              { id: "name", label: "Nama" },
+              { id: "size", label: "Ukuran" },
+              { id: "modifiedTime", label: "Diubah" },
+              { id: "category", label: "Tipe" },
+            ].map((col) => {
+              const isActive = currentSort.id === col.id;
+              const isDesc = currentSort.desc;
+
+              return (
+                <button
+                  key={col.id}
+                  onClick={() => handleSort(col.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 cursor-pointer ${
+                    isActive
+                      ? "bg-blue-600 text-white font-semibold shadow-2xs"
+                      : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                  title={`Urutkan berdasarkan ${col.label}`}
+                >
+                  <span>{col.label}</span>
+                  {isActive &&
+                    (isDesc ? (
+                      <ArrowDown className="h-2.5 w-2.5" />
+                    ) : (
+                      <ArrowUp className="h-2.5 w-2.5" />
+                    ))}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Detailed Sort Dropdown Menu for Mobile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="iconSm"
+                className="h-7.5 w-7.5 rounded-full border border-slate-200/80 bg-white text-slate-600 hover:text-blue-600 hover:border-blue-300 shadow-2xs shrink-0 cursor-pointer"
+                title="Pilihan Pengurutan Lengkap"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-1.5 shadow-lg">
+              <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                Urutkan Berkas
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="my-1" />
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("name", false)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "name" && !currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Nama: A → Z (Alpabetis)</span>
+                {currentSort.id === "name" && !currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("name", true)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "name" && currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Nama: Z → A (Terbalik)</span>
+                {currentSort.id === "name" && currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1" />
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("size", true)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "size" && currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Ukuran: Terbesar ke Terkecil</span>
+                {currentSort.id === "size" && currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("size", false)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "size" && !currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Ukuran: Terkecil ke Terbesar</span>
+                {currentSort.id === "size" && !currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1" />
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("modifiedTime", true)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "modifiedTime" && currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Waktu: Terbaru ke Terlama</span>
+                {currentSort.id === "modifiedTime" && currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("modifiedTime", false)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "modifiedTime" && !currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Waktu: Terlama ke Terbaru</span>
+                {currentSort.id === "modifiedTime" && !currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1" />
+
+              <DropdownMenuItem
+                onClick={() => setDirectSort("category", false)}
+                className={`text-xs cursor-pointer flex items-center justify-between ${
+                  currentSort.id === "category" && !currentSort.desc
+                    ? "text-blue-600 font-semibold"
+                    : ""
+                }`}
+              >
+                <span>Tipe: Kelompokkan Berkas</span>
+                {currentSort.id === "category" && !currentSort.desc && (
+                  <Check className="h-3.5 w-3.5 text-blue-600" />
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

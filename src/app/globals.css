@@ -622,9 +622,31 @@
 }
 
 /* Skeleton Loading in Midnight */
-.midnight .animate-pulse,
-.dark .animate-pulse {
+.midnight [data-slot="skeleton"],
+.midnight .skeleton,
+.midnight [class*="bg-slate-200"],
+.midnight [class*="bg-slate-300"],
+.midnight [class*="bg-blue-200"],
+.dark [data-slot="skeleton"],
+.dark .skeleton,
+.dark [class*="bg-slate-200"],
+.dark [class*="bg-slate-300"],
+.dark [class*="bg-blue-200"],
+.midnight .animate-pulse:not(svg):not(path):not([class*="space-y-"]):not([class*="grid"]):not([class*="flex"]):not(table):not(tbody):not(thead):not(tr),
+.dark .animate-pulse:not(svg):not(path):not([class*="space-y-"]):not([class*="grid"]):not([class*="flex"]):not(table):not(tbody):not(thead):not(tr) {
   background-color: #1E293B !important;
+}
+
+.midnight .preview-skeleton-box,
+.dark .preview-skeleton-box {
+  background-color: #162032 !important;
+  border-color: #1E293B !important;
+}
+
+.midnight .file-detail-card,
+.dark .file-detail-card {
+  background-color: #111827 !important;
+  border-color: #1E293B !important;
 }
 
 /* Scrollbar in Midnight */

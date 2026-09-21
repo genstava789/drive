@@ -44,6 +44,17 @@ export function DriveTableSkeleton({ rowCount = 7 }: DriveTableSkeletonProps) {
     <div className="space-y-2.5 animate-in fade-in duration-200">
       {/* Table Container Card */}
       <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+        {/* Mobile Sorting Bar Skeleton - only on small screens */}
+        <div className="sm:hidden flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200/80 bg-[#F8F9FA]/90">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+            <Skeleton className="h-6 w-14 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-14 rounded-full" />
+          </div>
+          <Skeleton className="h-7.5 w-7.5 rounded-full shrink-0" />
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-slate-200/80 bg-[#F8F9FA]/90 select-none">
@@ -93,7 +104,8 @@ export function DriveTableSkeleton({ rowCount = 7 }: DriveTableSkeletonProps) {
                   <TableCell className="p-2.5 sm:p-3 px-3.5 sm:px-4">
                     <div className="flex items-center gap-2.5 py-0.5">
                       <div
-                        className={`h-7 w-7 rounded-lg ${iconColor} shrink-0 animate-pulse`}
+                        data-slot="skeleton"
+                        className={`h-7 w-7 rounded-lg ${iconColor} dark:bg-slate-800 midnight:bg-slate-800 shrink-0 animate-pulse`}
                       />
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <Skeleton className={`h-3.5 ${widthClass} rounded`} />

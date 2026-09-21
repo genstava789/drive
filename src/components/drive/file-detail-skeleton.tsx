@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
-
+import { Skeleton } from "@/components/ui/skeleton";
 import { getStoredBreadcrumbs } from "@/lib/breadcrumbs";
 import { BreadcrumbItem } from "@/types/drive";
 
@@ -23,7 +23,7 @@ export function FileDetailSkeleton({
         try {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (_) {}
+        } catch {}
       }
       const parentId = sessionStorage.getItem(`drive_parent_${driveId}`);
       if (parentId && parentId !== "root") {
@@ -40,7 +40,7 @@ export function FileDetailSkeleton({
       : `/${accountIndex}`;
 
   return (
-    <div className="w-full space-y-3 animate-pulse">
+    <div className="w-full space-y-3 animate-in fade-in duration-200">
       {/* Top Breadcrumb & Back Navigation */}
       <div className="flex items-center gap-2 px-0.5">
         <Link href={backUrl} prefetch={true}>
@@ -69,49 +69,49 @@ export function FileDetailSkeleton({
             );
           })}
           <span className="shrink-0">/</span>
-          <div className="h-4 w-32 sm:w-48 bg-slate-200 rounded animate-pulse" />
+          <Skeleton className="h-4 w-32 sm:w-48 rounded" />
         </div>
       </div>
 
       {/* Main File Card Skeleton */}
-      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4 overflow-hidden w-full max-w-full">
+      <div className="file-detail-card rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs space-y-4 overflow-hidden w-full max-w-full">
         {/* Header with Icon, Title, and Action Buttons */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100 min-w-0 w-full">
           <div className="flex items-start gap-2.5 min-w-0 w-full sm:w-auto flex-1">
             {/* File Icon placeholder */}
-            <div className="h-7 w-7 rounded-lg bg-slate-200 shrink-0 mt-0.5" />
+            <Skeleton className="h-7 w-7 rounded-lg shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1 space-y-2">
               {/* File Title skeleton */}
-              <div className="h-5 w-44 sm:w-72 bg-slate-200 rounded" />
+              <Skeleton className="h-5 w-44 sm:w-72 rounded" />
               {/* Size badge skeleton */}
-              <div className="h-4 w-16 bg-slate-100 border border-slate-200/60 rounded-full" />
+              <Skeleton className="h-4 w-16 rounded-full" />
             </div>
           </div>
 
           {/* Quick Actions (Download, Open Drive) */}
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
             {/* Download Button skeleton */}
-            <div className="flex-1 sm:flex-initial h-8 px-3 rounded-lg bg-blue-600/20 border border-blue-600/30 flex items-center justify-center gap-1.5 min-w-[95px]">
+            <div className="flex-1 sm:flex-initial h-8 px-3 rounded-lg bg-blue-600/15 border border-blue-500/20 flex items-center justify-center gap-1.5 min-w-[95px]">
               <Download className="h-3.5 w-3.5 text-blue-500/70" />
-              <div className="h-3 w-12 bg-blue-500/30 rounded" />
+              <Skeleton className="h-3 w-12 rounded" />
             </div>
 
             {/* Open Drive Button skeleton */}
-            <div className="flex-1 sm:flex-initial h-8 px-2.5 rounded-lg border border-slate-200 bg-slate-50/80 flex items-center justify-center gap-1.5 min-w-[95px]">
+            <div className="flex-1 sm:flex-initial h-8 px-2.5 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center gap-1.5 min-w-[95px]">
               <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-              <div className="h-3 w-14 bg-slate-300/70 rounded" />
+              <Skeleton className="h-3 w-14 rounded" />
             </div>
           </div>
         </div>
 
         {/* Media / Preview Box Placeholder */}
-        <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 h-44 sm:h-60 flex flex-col items-center justify-center p-4 gap-2.5">
-          <div className="h-10 w-10 rounded-full bg-slate-200/80 flex items-center justify-center" />
-          <div className="h-3 w-32 bg-slate-200 rounded" />
+        <div className="preview-skeleton-box rounded-xl border border-slate-200/80 bg-slate-50/80 h-44 sm:h-60 flex flex-col items-center justify-center p-4 gap-2.5">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-3 w-32 rounded" />
         </div>
 
         {/* Metadata Rows Skeleton */}
-        <div className="rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden w-full">
+        <div className="metadata-list rounded-xl border border-slate-200/80 divide-y divide-slate-100 bg-[#FAFAFB]/60 overflow-hidden w-full">
           {[
             { labelW: "w-20", valW: "w-40 sm:w-60" },
             { labelW: "w-16", valW: "w-32 sm:w-48" },
@@ -123,30 +123,32 @@ export function FileDetailSkeleton({
           ].map((row, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between p-2.5 sm:px-3.5 gap-2"
+              className="metadata-row flex items-center justify-between p-2.5 sm:px-3.5 gap-2"
             >
               <div className="flex items-center gap-2 shrink-0 min-w-[95px] sm:min-w-[140px]">
-                <div className="h-3.5 w-3.5 rounded bg-slate-200 shrink-0" />
-                <div className={`h-3.5 ${row.labelW} bg-slate-200 rounded`} />
+                <Skeleton className="h-3.5 w-3.5 rounded shrink-0" />
+                <Skeleton className={`h-3.5 ${row.labelW} rounded`} />
               </div>
               <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
-                <div className={`h-3.5 ${row.valW} bg-slate-200/80 rounded`} />
-                <div className="h-6 w-6 rounded-md bg-slate-200/60 shrink-0" />
+                <Skeleton className={`h-3.5 ${row.valW} rounded`} />
+                <Skeleton className="h-6 w-6 rounded-md shrink-0" />
               </div>
             </div>
           ))}
         </div>
 
         {/* Direct Download URL Card Skeleton */}
-        <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-2 overflow-hidden w-full">
+        <div className="file-download-card rounded-xl bg-blue-50/50 border border-blue-100 p-3 space-y-2 overflow-hidden w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Download className="h-3.5 w-3.5 text-blue-500/70 shrink-0" />
-              <div className="h-3.5 w-36 bg-blue-200/70 rounded" />
+              <Skeleton className="h-3.5 w-36 rounded" />
             </div>
-            <div className="h-3 w-16 bg-blue-200/60 rounded" />
+            <Skeleton className="h-3 w-16 rounded" />
           </div>
-          <div className="w-full h-8 rounded-md border border-blue-100/80 bg-white/90 p-2" />
+          <div className="file-download-box w-full h-8 rounded-md border border-blue-100/80 bg-white/90 px-2.5 flex items-center">
+            <Skeleton className="h-3 w-48 rounded" />
+          </div>
         </div>
       </div>
     </div>
