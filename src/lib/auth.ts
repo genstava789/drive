@@ -4,6 +4,14 @@ import fs from "fs";
 import path from "path";
 import { GoogleAccount } from "@/types/drive";
 
+// Ensure AUTH_URL and NEXTAUTH_URL point to base origins (strip /api/auth/... if present)
+if (process.env.AUTH_URL && process.env.AUTH_URL.includes("/api/auth")) {
+  process.env.AUTH_URL = process.env.AUTH_URL.split("/api/auth")[0];
+}
+if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.includes("/api/auth")) {
+  process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL.split("/api/auth")[0];
+}
+
 /**
  * Membaca kredensial Google OAuth:
  * Prioritas 1: Environment variable GOOGLE_CLIENT_ID / AUTH_GOOGLE_ID
