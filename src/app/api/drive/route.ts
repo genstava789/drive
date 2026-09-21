@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getDriveFiles, getDriveItemById } from "@/lib/google-drive";
-import { getServerStoreState } from "@/lib/server-account-store";
+import {
+  getServerStoreState,
+  getServerAccounts,
+  getValidAccessTokenForAccount,
+  getEnvProvisionedAccount,
+} from "@/lib/server-account-store";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,9 +19,20 @@ export async function GET(request: NextRequest) {
       searchParams.get("refresh") === "true" ||
       searchParams.get("demo") === "true";
 
-    // 1. Authoritative check: if server store is in logged-out state or empty, reject immediately
+    const session = await auth();
     const serverState = await getServerStoreState();
-    if (serverState.loggedOut || !serverState.accounts || serverState.accounts.length === 0) {
+    const serverAccounts = await getServerAccounts();
+    const envAcc = getEnvProvisionedAccount();
+
+    const hasSessionAuth = Boolean(session?.user || session?.accessToken);
+    const hasServerAuth = Boolean(
+      serverAccounts.length > 0 ||
+      (serverState.accounts && serverState.accounts.length > 0) ||
+      envAcc
+    );
+
+    // Only reject if completely unauthenticated across both browser session and server store
+    if (!hasSessionAuth && !hasServerAuth && serverState.loggedOut) {
       return NextResponse.json({
         files: [],
         currentFolderId: folderId,
@@ -28,17 +44,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const session = await auth();
-
     // Select access token for the requested account index
-    let accessToken = session?.accessToken;
+    let accessToken: string | null | undefined = session?.accessToken;
     if (session?.accounts && session.accounts[accountIndex]?.accessToken) {
       accessToken = session.accounts[accountIndex].accessToken;
+    }
+    if (!accessToken) {
+      accessToken = await getValidAccessTokenForAccount(accountIndex);
     }
 
     // If single item lookup requested
     if (itemId) {
-      const item = await getDriveItemById(itemId, accessToken, accountIndex, forceRefresh);
+      const item = await getDriveItemById(
+        itemId,
+        accessToken ?? undefined,
+        accountIndex,
+        forceRefresh
+      );
       if (!item) {
         return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
       }
@@ -49,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     // Otherwise list folder items
     const driveData = await getDriveFiles(
-      accessToken,
+      accessToken ?? undefined,
       folderId,
       accountIndex,
       forceRefresh,

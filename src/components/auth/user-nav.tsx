@@ -55,12 +55,8 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     };
 
     fetchAccounts(false);
-    window.addEventListener("focus", () => fetchAccounts(false));
-    document.addEventListener("visibilitychange", () => fetchAccounts(false));
     window.addEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     return () => {
-      window.removeEventListener("focus", () => fetchAccounts(false));
-      document.removeEventListener("visibilitychange", () => fetchAccounts(false));
       window.removeEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
     };
   }, []);

@@ -119,7 +119,7 @@ export function DriveExplorer({
         setIsMockData(data.isMockData ?? false);
 
         // Authoritative authentication state from server:
-        if (data.isAuthenticated === false) {
+        if (data.isAuthenticated === false && !session?.user && !session?.accessToken) {
           setHasNoAccount(true);
           setFiles([]);
           clientFolderCache.delete(activeCacheKey);
@@ -236,29 +236,28 @@ export function DriveExplorer({
   // Synchronize accounts state with server and browser session
   useEffect(() => {
     let isMounted = true;
-    const checkAccounts = async (isExplicitEvent = false) => {
+    const checkAccounts = async (isExplicitLogout = false) => {
       let currentServerAccounts: GoogleAccount[] = [];
       try {
-        currentServerAccounts = await fetchCachedServerAccounts(isExplicitEvent);
+        currentServerAccounts = await fetchCachedServerAccounts(false);
         if (isMounted) setServerAccounts(currentServerAccounts);
       } catch (_) {}
 
       if (!isMounted) return;
 
       const active = getActiveAccounts(session, currentServerAccounts);
-      if (isExplicitEvent) {
-        if (active.length === 0) {
-          setHasNoAccount(true);
-          setFiles([]);
-          clientFolderCache.clear();
-        } else {
-          setHasNoAccount(false);
-          fetchFiles(currentFolderId, true);
-        }
-      } else {
-        if (active.length > 0 && accountIndex >= active.length) {
-          router.push("/0");
-        }
+      const isUserAuthenticated = Boolean(
+        session?.user ||
+        session?.accessToken ||
+        active.length > 0
+      );
+
+      if (isExplicitLogout && !isUserAuthenticated) {
+        setHasNoAccount(true);
+        setFiles([]);
+        clientFolderCache.clear();
+      } else if (isUserAuthenticated) {
+        setHasNoAccount(false);
       }
     };
 
@@ -268,15 +267,11 @@ export function DriveExplorer({
       checkAccounts(true);
     };
     window.addEventListener("levidrive_accounts_changed", onAccountsChanged);
-    window.addEventListener("focus", onAccountsChanged);
-    document.addEventListener("visibilitychange", onAccountsChanged);
     return () => {
       isMounted = false;
       window.removeEventListener("levidrive_accounts_changed", onAccountsChanged);
-      window.removeEventListener("focus", onAccountsChanged);
-      document.removeEventListener("visibilitychange", onAccountsChanged);
     };
-  }, [session, accountIndex, router, currentFolderId, fetchFiles]);
+  }, [session]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && initialFolderId && initialFolderId !== "root") {
