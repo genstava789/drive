@@ -53,15 +53,8 @@ export function VidstackPlayerInner({
         storage={`levidrive_playback_${encodeURIComponent(title)}`}
         className="w-full h-full aspect-video bg-black"
       >
-        <MediaProvider>
-          {poster && (
-            <Poster
-              src={poster}
-              alt={title}
-              className="vds-poster object-contain w-full h-full bg-black/60"
-            />
-          )}
-        </MediaProvider>
+        <MediaProvider />
+
         <DefaultVideoLayout
           icons={defaultLayoutIcons}
           colorScheme="dark"

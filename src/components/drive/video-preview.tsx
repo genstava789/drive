@@ -44,13 +44,13 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
-  // Video player and its title/badges are completely hidden/collapsed by default
+  // Video player is hidden/collapsed by default
   const [isOpen, setIsOpen] = useState(false);
 
   // Direct HTTP 206 streaming proxy URL
   const streamUrl = getVideoStreamUrl(file.id, accountIndex);
 
-  // Get high-res poster thumbnail from Google Drive if available
+  // High-res poster thumbnail from Google Drive
   const posterUrl = file.thumbnailLink
     ? file.thumbnailLink.replace(/=s\d+[^/]*$/, "=s1200")
     : undefined;
@@ -71,48 +71,60 @@ export function VideoPreview({ file, accountIndex = 0 }: VideoPreviewProps) {
     : null;
 
   // 1. COLLAPSED STATE (Default):
-  // Harmonious UI card matching the existing image preview card styling
+  // Clean UI Card with Play Icon and Open Video button (No broken image preview)
   if (!isOpen) {
     return (
       <div
         onClick={() => setIsOpen(true)}
-        className="relative group rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50/80 max-h-72 sm:max-h-80 flex items-center justify-center p-2 cursor-pointer select-none transition hover:border-blue-300"
-        title="Klik untuk membuka pemutar video (Open Video)"
+        className="w-full rounded-xl border border-blue-100/90 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50/80 p-3.5 sm:p-4.5 shadow-2xs hover:shadow-xs hover:border-blue-300 transition-all cursor-pointer flex items-center justify-between gap-3 sm:gap-4 select-none group"
+        title="Klik untuk membuka pemutar video"
       >
-        {posterUrl ? (
-          <div className="relative max-h-64 sm:max-h-72 w-full flex items-center justify-center overflow-hidden rounded-lg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={posterUrl}
-              alt={file.name}
-              className="max-h-60 sm:max-h-68 w-auto object-contain rounded-lg shadow-2xs group-hover:opacity-95 group-hover:scale-102 transition duration-300"
-            />
-            <div className="absolute inset-0 bg-black/15 group-hover:bg-black/25 transition-colors rounded-lg" />
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
+          {/* Play Icon */}
+          <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 group-hover:bg-blue-700 transition-all shrink-0">
+            <Play className="h-5 w-5 sm:h-5.5 sm:w-5.5 fill-white ml-0.5" />
           </div>
-        ) : (
-          <div className="h-56 w-full rounded-lg bg-slate-900 flex items-center justify-center">
-            <Video className="h-12 w-12 text-slate-700" />
-          </div>
-        )}
 
-        {/* Centered Glowing Play Button */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="flex h-13 w-13 sm:h-15 sm:w-15 items-center justify-center rounded-full bg-blue-600/95 text-white shadow-xl shadow-blue-900/40 ring-4 ring-white/30 group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-300">
-            <Play className="h-6 w-6 sm:h-6.5 sm:w-6.5 fill-white ml-0.5 text-white" />
+          {/* Title & Format Info */}
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-blue-600 transition-colors">
+                Open Video Player
+              </h3>
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 font-mono border-blue-200 text-blue-700 bg-white shadow-2xs"
+              >
+                {videoFormat}
+              </Badge>
+              {resolution && (
+                <Badge
+                  variant="info"
+                  className="text-[10px] px-1.5 py-0 font-semibold"
+                >
+                  {resolution}
+                </Badge>
+              )}
+              {file.size ? (
+                <span className="text-[10px] font-mono text-slate-500">
+                  {formatBytes(file.size)}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[11px] text-slate-500 truncate">
+              Klik untuk memutar video ini secara langsung dengan Vidstack
+            </p>
           </div>
         </div>
 
-        {/* Bottom-right Floating Pill Button "Open Video" */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(true);
-          }}
-          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-slate-900/85 text-white text-[11px] font-semibold px-3.5 py-1.5 backdrop-blur shadow-md hover:bg-blue-600 transition cursor-pointer"
+        {/* Action Button */}
+        <Button
+          size="sm"
+          className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg sm:rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 group-hover:shadow-md transition-all cursor-pointer"
         >
-          <Play className="h-3 w-3 fill-white" />
+          <Play className="h-3.5 w-3.5 fill-white" />
           <span>Open Video</span>
-        </button>
+        </Button>
       </div>
     );
   }
