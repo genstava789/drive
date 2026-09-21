@@ -447,6 +447,7 @@ export function DriveExplorer({
   useEffect(() => {
     const handlePopState = () => {
       if (typeof window === "undefined") return;
+      setNavigatingFileId(null);
       const locParts = window.location.pathname.split("/").filter(Boolean);
       const accIdx = locParts[0] ? parseInt(locParts[0], 10) || 0 : 0;
       if (accIdx !== accountIndex) {

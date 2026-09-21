@@ -180,7 +180,10 @@ export function DriveTable({
           return (
             <div
               className="flex items-center gap-2.5 py-0.5 cursor-pointer group"
-              onClick={() => handleRowClick(file)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRowClick(file);
+              }}
             >
               <div className="shrink-0 transition-transform group-hover:scale-105">
                 <FileTypeIcon mimeType={file.mimeType} fileName={file.name} size={18} />
