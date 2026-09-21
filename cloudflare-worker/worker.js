@@ -20,9 +20,9 @@
 const authConfig = {
   siteName: "LeviDrive Downloader",
   // Google OAuth 2.0 credentials (dapat diisi otomatis via generate-tokens.js atau env Cloudflare)
-  client_id: "", // Or set GOOGLE_CLIENT_ID env variable
-  client_secret: "", // Or set GOOGLE_CLIENT_SECRET env variable
-  refresh_token: "", // Or set REFRESH_TOKEN env variable
+  client_id: "", // Or set GOOGLE_CLIENT_ID env variable / .dev.vars
+  client_secret: "", // Or set GOOGLE_CLIENT_SECRET env variable / .dev.vars
+  refresh_token: "", // Or set REFRESH_TOKEN env variable / .dev.vars
   // Service account option
   service_account: false, // Set true if using Service Account
   cors_domain: "*",

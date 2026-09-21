@@ -166,17 +166,13 @@ async function main() {
 
   if (useLocalServer) {
     console.log("⏳ Menunggu Anda menyetujui izin di browser...");
-    console.log("(Script akan otomatis mendeteksi ketika Anda selesai klik 'Izinkan' di browser)\n");
+    console.log("(Script akan otomatis mendeteksi saat Anda klik 'Izinkan' di browser)\n");
 
-    // Race between automatic local receiver and manual paste
-    const manualPrompt = (async () => {
-      const input = await ask("Atau tempelkan kode/URL di sini jika browser tidak otomatis menutup: ");
-      return input.trim();
-    })();
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 120000));
+    code = await Promise.race([localServerPromise, timeoutPromise]);
 
-    const result = await Promise.race([localServerPromise, manualPrompt]);
-    if (result) {
-      code = result;
+    if (!code) {
+      console.log("⚠️ Tidak menerima respon otomatis dalam 2 menit. Beralih ke input manual.\n");
     }
   }
 
@@ -257,32 +253,7 @@ async function main() {
       console.warn("2. Cabut izin aplikasi Anda, lalu jalankan script ini kembali.\n");
     }
 
-    // Offer to update worker.js directly
-    const workerPath = path.join(__dirname, "worker.js");
-    if (refreshToken && fs.existsSync(workerPath)) {
-      const updateWorker = await ask("Apakah Anda ingin memperbarui worker.js secara otomatis dengan kredensial ini? (Y/n): ");
-      if (updateWorker.trim().toLowerCase() !== "n") {
-        let workerContent = fs.readFileSync(workerPath, "utf-8");
-
-        workerContent = workerContent.replace(
-          /client_id:\s*["'][^"']*["']/,
-          `client_id: "${clientId}"`
-        );
-        workerContent = workerContent.replace(
-          /client_secret:\s*["'][^"']*["']/,
-          `client_secret: "${clientSecret}"`
-        );
-        workerContent = workerContent.replace(
-          /refresh_token:\s*["'][^"']*["']/,
-          `refresh_token: "${refreshToken}"`
-        );
-
-        fs.writeFileSync(workerPath, workerContent, "utf-8");
-        console.log("✅ Berhasil memperbarui authConfig di cloudflare-worker/worker.js!");
-      }
-    }
-
-    // Offer to create .dev.vars for wrangler local development
+    // Save credentials to gitignored .dev.vars for Wrangler
     if (refreshToken) {
       const devVarsPath = path.join(__dirname, ".dev.vars");
       const devVarsContent =
@@ -291,14 +262,16 @@ async function main() {
         `REFRESH_TOKEN="${refreshToken}"\n`;
 
       fs.writeFileSync(devVarsPath, devVarsContent, "utf-8");
-      console.log("✅ Berhasil membuat cloudflare-worker/.dev.vars untuk pengujian Wrangler lokal!");
+      console.log("✅ Berhasil menyimpan kredensial ke cloudflare-worker/.dev.vars (terlindungi .gitignore)!");
     }
 
     console.log("\n🚀 Langkah Selanjutnya:");
-    console.log("1. Jalankan worker secara lokal: npx wrangler dev");
-    console.log("2. Deploy worker ke Cloudflare: npx wrangler deploy");
-    console.log("3. Pasang URL worker ke .env.local Next.js:");
-    console.log('   NEXT_PUBLIC_CF_WORKER_URL="https://your-worker.workers.dev"\n');
+    console.log("1. Upload secrets ke Cloudflare Worker:");
+    console.log("   npx wrangler secret bulk .dev.vars\n");
+    console.log("2. Deploy worker ke Cloudflare:");
+    console.log("   npx wrangler deploy\n");
+    console.log("3. Pasang URL worker ke file .env.local di Next.js:");
+    console.log('   NEXT_PUBLIC_CF_WORKER_URL="https://levidrive-downloader.<subdomain>.workers.dev"\n');
   } catch (err) {
     console.error("❌ Terjadi error saat pertukaran token:", err.message);
   } finally {
