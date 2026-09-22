@@ -387,7 +387,7 @@ export function DriveExplorer({
     [accountIndex, breadcrumbs, fetchFiles]
   );
 
-  // Instant optimistic file navigation: immediately renders FileDetailSkeleton in 0ms!
+  // Seamless file navigation: syncs breadcrumbs state and transitions smoothly via Next.js suspense loading
   const handleFileClick = useCallback(
     (file: DriveFile) => {
       setNavigatingFileId(file.id);
@@ -406,7 +406,9 @@ export function DriveExplorer({
         );
       }
 
-      router.push(`/${accountIndex}/file/${file.id}`);
+      React.startTransition(() => {
+        router.push(`/${accountIndex}/file/${file.id}`);
+      });
     },
     [accountIndex, breadcrumbs, router]
   );
@@ -558,17 +560,6 @@ export function DriveExplorer({
   }, [files, selectedCategory]);
 
   const isFiltered = selectedCategory !== "all" || Boolean(searchQuery.trim());
-
-  if (navigatingFileId) {
-    return (
-      <div className="w-full">
-        <FileDetailSkeleton
-          accountIndex={accountIndex}
-          driveId={navigatingFileId}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full">

@@ -1,0 +1,12 @@
+# GitHub Linguist Overrides
+# Exclude third-party vendor libraries and assets from language statistics
+public/** linguist-vendored
+public/** linguist-generated
+*.min.js linguist-vendored linguist-generated
+*.min.mjs linguist-vendored linguist-generated
+
+# Exclude Cloudflare worker scripts from main project language stats
+cloudflare-worker/** linguist-vendored
+
+# Exclude config files
+*.config.mjs linguist-vendored

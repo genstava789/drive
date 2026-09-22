@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FileDetailSkeleton } from "@/components/drive/file-detail-skeleton";
 
-export default function FileLoading() {
+export default function FileGroupLoading() {
   const [accountIndex, setAccountIndex] = useState(0);
   const [driveId, setDriveId] = useState("");
 

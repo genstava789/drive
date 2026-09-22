@@ -40,10 +40,10 @@ export function FileDetailSkeleton({
       : `/${accountIndex}`;
 
   return (
-    <div className="w-full space-y-3 animate-in fade-in duration-200">
+    <div className="w-full space-y-3">
       {/* Top Breadcrumb & Back Navigation */}
       <div className="flex items-center gap-2 px-0.5">
-        <Link href={backUrl} prefetch={true}>
+        <Link id="file-back-button-skeleton" href={backUrl} prefetch={true}>
           <div className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-2xs">
             <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </div>

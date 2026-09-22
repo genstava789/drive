@@ -187,6 +187,8 @@ export function FileDetailView({
       {/* Top Breadcrumb & Back Navigation - Compact & Mobile First */}
       <div className="flex items-center gap-2 px-0.5">
         <Link
+          id="file-back-button"
+          data-testid="file-back-button"
           href={backUrl}
           prefetch={true}
           onClick={() => {
