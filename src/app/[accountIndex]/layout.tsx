@@ -24,24 +24,21 @@ export default async function AccountLayout({
   const resolvedParams = await params;
   const accountIndex = parseInt(resolvedParams.accountIndex, 10) || 0;
 
-  // Retrieve authenticated accounts and site session server-side
+  // 1. Enforce site gate protection at layout level before anything else
+  const siteSession = await getSiteSession().catch(() => null);
+  if (!siteSession || !siteSession.role) {
+    redirect("/login");
+  }
+
+  const userRole: "admin" | "user" = siteSession.role;
   let initialAccounts: GoogleAccount[] = [];
-  let userRole: "admin" | "user" = "user";
 
   try {
-    const [session, serverAccounts, serverState, siteSession] = await Promise.all([
+    const [session, serverAccounts, serverState] = await Promise.all([
       auth().catch(() => null),
       getServerAccounts().catch(() => []),
       getServerStoreState().catch(() => ({ loggedOut: false, loggedOutAt: 0, accounts: [] })),
-      getSiteSession().catch(() => null),
     ]);
-
-    // Enforce gate protection at layout level
-    if (!siteSession || !siteSession.role) {
-      redirect("/login");
-    }
-
-    userRole = siteSession.role;
 
     if (!serverState?.loggedOut) {
       if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
