@@ -6,6 +6,7 @@ import {
   getValidAccessTokenForAccount,
 } from "@/lib/server-account-store";
 import { getGoogleCredentials } from "@/lib/auth-credentials";
+import { getSiteSession } from "@/lib/site-auth";
 
 // In-memory cache for settings and quota (TTL 30 seconds)
 interface CachedSettings {
@@ -19,6 +20,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const siteSession = await getSiteSession();
+    if (siteSession?.role !== "admin") {
+      return NextResponse.json(
+        { error: "Akses ditolak. Pengaturan hanya dapat diakses oleh Owner/Admin." },
+        { status: 403 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const accountIndex = parseInt(searchParams.get("accountIndex") || "0", 10) || 0;
     const forceRefresh = searchParams.get("refresh") === "true";

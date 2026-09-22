@@ -1,9 +1,16 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { UserNav } from "@/components/auth/user-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Heart } from "lucide-react";
+import { getServerAccounts, getServerStoreState } from "@/lib/server-account-store";
+import { auth } from "@/lib/auth";
+import { GoogleAccount } from "@/types/drive";
+import { getSiteSession } from "@/lib/site-auth";
+
+export const dynamic = "force-dynamic";
 
 interface AccountLayoutProps {
   children: React.ReactNode;
@@ -17,6 +24,53 @@ export default async function AccountLayout({
   const resolvedParams = await params;
   const accountIndex = parseInt(resolvedParams.accountIndex, 10) || 0;
 
+  // Retrieve authenticated accounts and site session server-side
+  let initialAccounts: GoogleAccount[] = [];
+  let userRole: "admin" | "user" = "user";
+
+  try {
+    const [session, serverAccounts, serverState, siteSession] = await Promise.all([
+      auth().catch(() => null),
+      getServerAccounts().catch(() => []),
+      getServerStoreState().catch(() => ({ loggedOut: false, loggedOutAt: 0, accounts: [] })),
+      getSiteSession().catch(() => null),
+    ]);
+
+    // Enforce gate protection at layout level
+    if (!siteSession || !siteSession.role) {
+      redirect("/login");
+    }
+
+    userRole = siteSession.role;
+
+    if (!serverState?.loggedOut) {
+      if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
+        initialAccounts = serverAccounts
+          .filter((acc) => acc.email && acc.email.includes("@"))
+          .map((acc, index) => ({
+            id: acc.id || `account-${index}`,
+            name: acc.name || "Akun Google",
+            // Hide owner email completely for regular users for privacy
+            email: userRole === "admin" ? acc.email || "" : "Akun Terverifikasi",
+            image: acc.image || undefined,
+            hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
+            isPrimaryEnv: Boolean(acc.isPrimaryEnv),
+          }));
+      } else if (session?.user && session.user.email) {
+        initialAccounts = [
+          {
+            id: (session.user as any).id || "primary",
+            name: session.user.name || "Akun Google",
+            email: userRole === "admin" ? session.user.email || "" : "Akun Terverifikasi",
+            image: session.user.image || undefined,
+          },
+        ];
+      }
+    }
+  } catch (err) {
+    console.warn("[AccountLayout] Failed to pre-resolve accounts:", err);
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7F9] text-slate-800 antialiased">
       {/* Persistent Top Navbar Header - Always visible, never replaced by loading skeleton */}
@@ -28,7 +82,7 @@ export default async function AccountLayout({
           {/* Right Header Controls: Theme Switcher & Multi-Account Navigation */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             <ThemeToggle />
-            <UserNav accountIndex={accountIndex} />
+            <UserNav accountIndex={accountIndex} initialAccounts={initialAccounts} userRole={userRole} />
           </div>
         </div>
       </header>

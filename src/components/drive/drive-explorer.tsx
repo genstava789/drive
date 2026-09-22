@@ -27,7 +27,7 @@ interface ClientFolderCacheEntry {
   timestamp: number;
 }
 const clientFolderCache = new Map<string, ClientFolderCacheEntry>();
-const CLIENT_CACHE_TTL_MS = 60000; // 60 seconds client cache
+const CLIENT_CACHE_TTL_MS = 300000; // 5 minutes client cache
 
 interface DriveExplorerProps {
   accountIndex?: number;
@@ -94,6 +94,9 @@ export function DriveExplorer({
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [navigatingFileId, setNavigatingFileId] = useState<string | null>(null);
+  const lastFetchedFolderIdRef = useRef<string | null>(
+    isInitialCachedFresh ? initialFolderId : null
+  );
 
   // Fetch Drive items from API
   const fetchFiles = useCallback(
@@ -212,6 +215,10 @@ export function DriveExplorer({
   );
 
   useEffect(() => {
+    if (lastFetchedFolderIdRef.current === currentFolderId) {
+      return;
+    }
+    lastFetchedFolderIdRef.current = currentFolderId;
     fetchFiles(currentFolderId);
   }, [currentFolderId, fetchFiles]);
 
@@ -346,9 +353,11 @@ export function DriveExplorer({
   // Instant in-app folder navigation (0ms without page reload)
   const handleFolderClick = useCallback(
     (folder: { id: string; name: string }) => {
-      // 1. Immediately update breadcrumbs in memory & sessionStorage
-      const updated = recordFolderNavigation(breadcrumbs, folder);
-      setBreadcrumbs(updated);
+      // 1. Immediately update breadcrumbs in memory & sessionStorage using current state
+      setBreadcrumbs((prev) => {
+        const updated = recordFolderNavigation(prev, folder);
+        return updated;
+      });
 
       if (typeof window !== "undefined") {
         sessionStorage.setItem("drive_navigating_id", folder.id);
@@ -374,10 +383,14 @@ export function DriveExplorer({
         cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
       setCurrentFolderId(folder.id);
+      lastFetchedFolderIdRef.current = folder.id;
 
-      if (isFresh) {
+      if (cached) {
         setFiles(cached.files);
         setIsLoading(false);
+        if (!isFresh) {
+          fetchFiles(folder.id);
+        }
       } else {
         setFiles([]);
         setIsLoading(true);
@@ -436,9 +449,13 @@ export function DriveExplorer({
           cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
         setCurrentFolderId("root");
-        if (isFresh) {
+        lastFetchedFolderIdRef.current = "root";
+        if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
+          if (!isFresh) {
+            fetchFiles("root");
+          }
         } else {
           setFiles([]);
           setIsLoading(true);
@@ -460,9 +477,13 @@ export function DriveExplorer({
           cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
         setCurrentFolderId(folderId);
-        if (isFresh) {
+        lastFetchedFolderIdRef.current = folderId;
+        if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
+          if (!isFresh) {
+            fetchFiles(folderId);
+          }
         } else {
           setFiles([]);
           setIsLoading(true);
@@ -500,9 +521,13 @@ export function DriveExplorer({
         cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
       setCurrentFolderId(targetFolderId);
-      if (isFresh) {
+      lastFetchedFolderIdRef.current = targetFolderId;
+      if (cached) {
         setFiles(cached.files);
         setIsLoading(false);
+        if (!isFresh) {
+          fetchFiles(targetFolderId);
+        }
       } else {
         setFiles([]);
         setIsLoading(true);
@@ -618,7 +643,7 @@ export function DriveExplorer({
 
         {/* Loading Skeleton */}
         {isLoading ? (
-          <DriveTableSkeleton rowCount={7} />
+          <DriveTableSkeleton rowCount={5} />
         ) : viewMode === "table" ? (
           /* Headless TanStack Table View with Instant Folder Navigation */
           <DriveTable

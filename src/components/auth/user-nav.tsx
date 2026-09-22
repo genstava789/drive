@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,66 +25,103 @@ import {
   removeAccountById,
   getActiveAccounts,
   fetchCachedServerAccounts,
+  getCachedLocalStorageAccounts,
+  invalidateClientAccountsCache,
 } from "@/lib/account-store";
 import { GoogleAccount } from "@/types/drive";
 
 interface UserNavProps {
   accountIndex?: number;
+  initialAccounts?: GoogleAccount[];
+  userRole?: "admin" | "user";
 }
 
-export function UserNav({ accountIndex = 0 }: UserNavProps) {
+export function UserNav({
+  accountIndex = 0,
+  initialAccounts = [],
+  userRole = "user",
+}: UserNavProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [guideOpen, setGuideOpen] = useState(false);
-  const [accounts, setAccounts] = useState<GoogleAccount[]>([]);
-  const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>([]);
+
+  // Initialize from initialAccounts if provided (SSR), otherwise try localStorage cache
+  const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>(() => {
+    if (initialAccounts && initialAccounts.length > 0) return initialAccounts;
+    if (typeof window !== "undefined") {
+      const stored = getCachedLocalStorageAccounts();
+      if (stored.length > 0) {
+        return stored.map((acc) => ({
+          ...acc,
+          email: userRole === "admin" ? acc.email : "Akun Terverifikasi",
+        }));
+      }
+    }
+    return [];
+  });
+
+  // Derive accounts synchronously from session & serverAccounts: zero delay, no intermediate empty render
+  const accounts = useMemo(() => {
+    const rawAccounts = getActiveAccounts(session, serverAccounts);
+    if (userRole === "admin") return rawAccounts;
+    return rawAccounts.map((acc) => ({
+      ...acc,
+      email: "Akun Terverifikasi",
+    }));
+  }, [session, serverAccounts, userRole]);
+
+  // Track if we are still syncing initial accounts
+  const [isAccountsSyncing, setIsAccountsSyncing] = useState<boolean>(() => {
+    const hasInitial =
+      (initialAccounts && initialAccounts.length > 0) ||
+      (typeof window !== "undefined" && getCachedLocalStorageAccounts().length > 0);
+    return !hasInitial;
+  });
 
   // Fetch accounts from server-side store (multi-device & serverless persistent accounts)
   useEffect(() => {
+    let isMounted = true;
     const fetchAccounts = (force = false) => {
       fetchCachedServerAccounts(force)
         .then((serverAccs) => {
+          if (!isMounted) return;
           if (Array.isArray(serverAccs)) {
-            setServerAccounts(serverAccs);
-            if (serverAccs.length === 0) {
-              setAccounts([]);
-            }
+            const sanitized = serverAccs.map((acc) => ({
+              ...acc,
+              email: userRole === "admin" ? acc.email : "Akun Terverifikasi",
+            }));
+            setServerAccounts(sanitized);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (isMounted) setIsAccountsSyncing(false);
+        });
     };
 
-    fetchAccounts(true);
-    window.addEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
+    fetchAccounts(false);
+    const onAccountsChanged = () => fetchAccounts(true);
+    window.addEventListener("levidrive_accounts_changed", onAccountsChanged);
     return () => {
-      window.removeEventListener("levidrive_accounts_changed", () => fetchAccounts(true));
+      isMounted = false;
+      window.removeEventListener("levidrive_accounts_changed", onAccountsChanged);
     };
-  }, []);
+  }, [session, userRole]);
 
   // When session updates (e.g. after adding an account via OAuth), force fresh fetch of server accounts
   useEffect(() => {
     fetchCachedServerAccounts(true)
       .then((serverAccs) => {
         if (Array.isArray(serverAccs)) {
-          setServerAccounts(serverAccs);
+          const sanitized = serverAccs.map((acc) => ({
+            ...acc,
+            email: userRole === "admin" ? acc.email : "Akun Terverifikasi",
+          }));
+          setServerAccounts(sanitized);
         }
       })
       .catch(() => {});
-  }, [session]);
-
-  // Collect and filter available accounts
-  useEffect(() => {
-    const updateAccounts = () => {
-      setAccounts(getActiveAccounts(session, serverAccounts));
-    };
-
-    updateAccounts();
-
-    window.addEventListener("levidrive_accounts_changed", updateAccounts);
-    return () => {
-      window.removeEventListener("levidrive_accounts_changed", updateAccounts);
-    };
-  }, [session, serverAccounts]);
+  }, [session, userRole]);
 
   const activeAccount = accounts[accountIndex] || accounts[0];
 
@@ -100,6 +137,13 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     });
   };
 
+  const handleGateLogout = async () => {
+    try {
+      await fetch("/api/auth/gate/logout", { method: "POST" });
+    } catch (_) {}
+    window.location.href = "/login";
+  };
+
   const handleLogoutAllAccounts = async () => {
     try {
       await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
@@ -107,8 +151,9 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
     try {
       await signOut({ redirect: false });
     } catch (_) {}
-    setAccounts([]);
+    invalidateClientAccountsCache();
     setServerAccounts([]);
+    setIsAccountsSyncing(false);
     window.dispatchEvent(new Event("levidrive_accounts_changed"));
     window.location.href = "/0";
   };
@@ -144,50 +189,21 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
   return (
     <>
       <div className="flex items-center gap-2">
-        {/* Settings button trigger */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/${accountIndex}/settings`)}
-          className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/90 hover:bg-slate-50 h-8 px-2.5 rounded-lg shadow-2xs cursor-pointer"
-          title="Buka Pengaturan & Kredensial"
-        >
-          <Settings className="h-3.5 w-3.5 text-slate-500" />
-          <span>Setting</span>
-        </Button>
+        {/* Settings button trigger - Admin only */}
+        {userRole === "admin" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/${accountIndex}/settings`)}
+            className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-600 border-slate-200 bg-white/90 hover:bg-slate-50 h-8 px-2.5 rounded-lg shadow-2xs cursor-pointer"
+            title="Buka Pengaturan & Kredensial"
+          >
+            <Settings className="h-3.5 w-3.5 text-slate-500" />
+            <span>Setting</span>
+          </Button>
+        )}
 
-        {status === "loading" ? (
-          <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
-        ) : accounts.length === 0 ? (
-          /* No active accounts logged in */
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              onClick={handleAddAccount}
-              className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
-                <path
-                  fill="#EA4335"
-                  d="M12 5c1.54 0 2.92.54 4.01 1.43l3.01-3.01C17.19 1.77 14.77 1 12 1 7.42 1 3.53 3.61 1.64 7.39l3.66 2.84C6.18 7.35 8.84 5 12 5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.68 2.86c2.14-1.98 3.74-4.89 3.74-8.68z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.3 14.77c-.23-.68-.36-1.41-.36-2.17s.13-1.49.36-2.17L1.64 7.59C.6 9.68 0 12 0 14.4s.6 4.72 1.64 6.81l3.66-2.84z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.68-2.86c-1.07.72-2.45 1.16-4.25 1.16-3.16 0-5.82-2.35-6.7-5.23L1.64 16c1.89 3.78 5.78 6.4 10.36 6.4z"
-                />
-              </svg>
-              <span>Login Google</span>
-            </Button>
-          </div>
-        ) : (
+        {accounts.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1.5 rounded-full p-1 pl-1.5 pr-2.5 border border-slate-200 bg-white hover:bg-slate-50 shadow-2xs transition outline-none cursor-pointer">
@@ -254,9 +270,15 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                           <p className="text-xs font-semibold text-slate-900 truncate">
                             {acc.name}
                           </p>
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {acc.email}
-                          </p>
+                          {userRole === "admin" ? (
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {acc.email}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-emerald-600 font-medium truncate">
+                              Akun Terverifikasi
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -265,16 +287,18 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
                           <Check className="h-3.5 w-3.5 text-blue-600 mr-0.5" />
                         )}
 
-                        {/* Individual Logout button on each account */}
-                        <button
-                          onClick={(e) =>
-                            handleLogoutSingleAccount(e, acc, idx)
-                          }
-                          title={`Logout akun ${acc.name}`}
-                          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer p-0.5"
-                        >
-                          <LogOut className="h-3 w-3" />
-                        </button>
+                        {/* Individual Logout button on each account - Admin only */}
+                        {userRole === "admin" && (
+                          <button
+                            onClick={(e) =>
+                              handleLogoutSingleAccount(e, acc, idx)
+                            }
+                            title={`Logout akun ${acc.name}`}
+                            className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer p-0.5"
+                          >
+                            <LogOut className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -283,34 +307,87 @@ export function UserNav({ accountIndex = 0 }: UserNavProps) {
 
               <DropdownMenuSeparator />
 
-              {/* Action: Add Account */}
-              <DropdownMenuItem
-                onClick={handleAddAccount}
-                className="gap-2 text-xs text-blue-600 font-medium cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Tambah Akun Google Lain</span>
-              </DropdownMenuItem>
+              {/* Action: Add Account - Admin only */}
+              {userRole === "admin" && (
+                <DropdownMenuItem
+                  onClick={handleAddAccount}
+                  className="gap-2 text-xs text-blue-600 font-medium cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Tambah Akun Google Lain</span>
+                </DropdownMenuItem>
+              )}
 
-              {/* Logout all accounts */}
-              <DropdownMenuItem
-                onClick={handleLogoutAllAccounts}
-                className="gap-2 text-xs text-red-600 font-medium cursor-pointer focus:text-red-600 focus:bg-red-50"
-              >
-                <LogOut className="h-3.5 w-3.5 text-red-500" />
-                <span>Logout Semua Akun</span>
-              </DropdownMenuItem>
+              {/* Settings page link - Admin only */}
+              {userRole === "admin" && (
+                <DropdownMenuItem
+                  onClick={() => router.push(`/${accountIndex}/settings`)}
+                  className="gap-2 text-xs text-slate-700 font-medium cursor-pointer hover:text-blue-600"
+                >
+                  <Settings className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Setting</span>
+                </DropdownMenuItem>
+              )}
 
-              {/* Settings page link */}
+              {/* Logout all Google accounts - Admin only */}
+              {userRole === "admin" && (
+                <DropdownMenuItem
+                  onClick={handleLogoutAllAccounts}
+                  className="gap-2 text-xs text-amber-600 font-medium cursor-pointer focus:text-amber-600 focus:bg-amber-50"
+                >
+                  <LogOut className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Logout Semua Akun Google</span>
+                </DropdownMenuItem>
+              )}
+
+              {/* Logout Akses Drive / Keluar - Available for all roles */}
               <DropdownMenuItem
-                onClick={() => router.push(`/${accountIndex}/settings`)}
-                className="gap-2 text-xs text-slate-700 font-medium cursor-pointer hover:text-blue-600"
+                onClick={handleGateLogout}
+                className="gap-2 text-xs text-rose-600 font-medium cursor-pointer focus:text-rose-600 focus:bg-rose-50"
               >
-                <Settings className="h-3.5 w-3.5 text-slate-500" />
-                <span>Setting</span>
+                <LogOut className="h-3.5 w-3.5 text-rose-500" />
+                <span>Keluar / Logout Akses Drive</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : isAccountsSyncing || status === "loading" ? (
+          <div className="h-8 w-8 rounded-full bg-slate-200/80 animate-pulse" />
+        ) : userRole === "admin" ? (
+          /* Confirmed no active accounts logged in - Only Admin can login Google */
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              onClick={handleAddAccount}
+              className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
+                <path
+                  fill="#EA4335"
+                  d="M12 5c1.54 0 2.92.54 4.01 1.43l3.01-3.01C17.19 1.77 14.77 1 12 1 7.42 1 3.53 3.61 1.64 7.39l3.66 2.84C6.18 7.35 8.84 5 12 5z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.68 2.86c2.14-1.98 3.74-4.89 3.74-8.68z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.3 14.77c-.23-.68-.36-1.41-.36-2.17s.13-1.49.36-2.17L1.64 7.59C.6 9.68 0 12 0 14.4s.6 4.72 1.64 6.81l3.66-2.84z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.68-2.86c-1.07.72-2.45 1.16-4.25 1.16-3.16 0-5.82-2.35-6.7-5.23L1.64 16c1.89 3.78 5.78 6.4 10.36 6.4z"
+                />
+              </svg>
+              <span>Login Google</span>
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={handleGateLogout}
+            className="text-xs text-slate-500 hover:text-rose-600 font-medium px-2 py-1 transition cursor-pointer"
+          >
+            Keluar
+          </button>
         )}
       </div>
 

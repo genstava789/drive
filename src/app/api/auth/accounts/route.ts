@@ -4,6 +4,7 @@ import {
   removeServerAccount,
   clearAllServerAccounts,
 } from "@/lib/server-account-store";
+import { getSiteSession } from "@/lib/site-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,12 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    const serverAccounts = await getServerAccounts();
+    const [serverAccounts, siteSession] = await Promise.all([
+      getServerAccounts(),
+      getSiteSession().catch(() => null),
+    ]);
+
+    const isAdmin = siteSession?.role === "admin";
 
     // Map to client-safe representation without exposing sensitive tokens, filtering dummy accounts
     const clientSafeAccounts = serverAccounts
@@ -21,7 +27,8 @@ export async function GET() {
       .map((acc, index) => ({
         id: acc.id || `account-${index}`,
         name: acc.name || "Akun Google",
-        email: acc.email || "",
+        // Mask owner email for non-admin users for absolute privacy
+        email: isAdmin ? acc.email || "" : "Akun Terverifikasi",
         image: acc.image || undefined,
         hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
         isPrimaryEnv: Boolean(acc.isPrimaryEnv),
@@ -53,6 +60,14 @@ export async function GET() {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const siteSession = await getSiteSession();
+    if (siteSession?.role !== "admin") {
+      return NextResponse.json(
+        { error: "Akses ditolak. Hanya owner yang berhak mengelola akun Google." },
+        { status: 403 }
+      );
+    }
+
     const isAll = req.nextUrl.searchParams.get("all") === "true";
     const id = req.nextUrl.searchParams.get("id");
     if (isAll || !id) {

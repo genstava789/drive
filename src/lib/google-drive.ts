@@ -28,9 +28,17 @@ interface CachedItemResult {
 const driveItemCache = new Map<string, CachedItemResult>();
 const ITEM_CACHE_TTL_MS = 60000; // 60 seconds file detail cache
 
+interface CachedBreadcrumbsResult {
+  data: BreadcrumbItem[];
+  timestamp: number;
+}
+const folderBreadcrumbsCache = new Map<string, CachedBreadcrumbsResult>();
+const BREADCRUMB_CACHE_TTL_MS = 300000; // 5 minutes breadcrumbs cache
+
 export function clearServerDriveCache(): void {
   driveFolderCache.clear();
   driveItemCache.clear();
+  folderBreadcrumbsCache.clear();
 }
 
 function resolveAccountId(serverState: any, accountIndex: number): string {
@@ -550,6 +558,12 @@ export async function getFolderBreadcrumbs(
     return [{ id: "root", name: "My Drive" }];
   }
 
+  const cacheKey = `${accountIndex}:${folderId}`;
+  const cached = folderBreadcrumbsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < BREADCRUMB_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const chain: BreadcrumbItem[] = [];
   let currentId: string | undefined = folderId;
   let depth = 0;
@@ -579,6 +593,7 @@ export async function getFolderBreadcrumbs(
   }
 
   chain.unshift({ id: "root", name: "My Drive" });
+  folderBreadcrumbsCache.set(cacheKey, { data: chain, timestamp: Date.now() });
   return chain;
 }
 

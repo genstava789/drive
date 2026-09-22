@@ -20,7 +20,10 @@ export function BreadcrumbNav({ breadcrumbs, onNavigate }: BreadcrumbNavProps) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-2 py-0.5 px-0.5">
+    <nav
+      aria-label="Navigasi folder"
+      className="flex items-center justify-between gap-2 py-0.5 px-0.5"
+    >
       <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full">
         {canGoBack && (
           <button
@@ -60,6 +63,6 @@ export function BreadcrumbNav({ breadcrumbs, onNavigate }: BreadcrumbNavProps) {
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

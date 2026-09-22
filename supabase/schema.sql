@@ -93,3 +93,21 @@ CREATE POLICY "Allow anon all on files_cache" ON public.files_cache
 DROP POLICY IF EXISTS "Allow anon all on drive_sync_state" ON public.drive_sync_state;
 CREATE POLICY "Allow anon all on drive_sync_state" ON public.drive_sync_state
   FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 6. Tabel Autentikasi Password Akses Situs (Gerbang /login)
+-- Membedakan hak akses: Pengguna Biasa ('drive-levi') vs Owner ('admin-drive')
+CREATE TABLE IF NOT EXISTS public.site_passwords (
+  role TEXT PRIMARY KEY, -- 'user' | 'admin'
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.site_passwords ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon all on site_passwords" ON public.site_passwords;
+CREATE POLICY "Allow anon all on site_passwords" ON public.site_passwords
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
