@@ -53,8 +53,11 @@ export function UserNav({
 
   // Initialize from initialAccounts if provided (SSR), otherwise try localStorage cache
   const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>(() => {
+    if (initialAccounts && initialAccounts.length > 0) {
+      clearAllLoggedOutFlag();
+      return initialAccounts;
+    }
     if (typeof window !== "undefined" && isAllLoggedOut()) return [];
-    if (initialAccounts && initialAccounts.length > 0) return initialAccounts;
     if (typeof window !== "undefined") {
       const stored = getCachedLocalStorageAccounts();
       if (stored.length > 0) {
@@ -80,6 +83,15 @@ export function UserNav({
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    if (initialAccounts && initialAccounts.length > 0) {
+      clearAllLoggedOutFlag();
+      setServerAccounts(initialAccounts);
+      setIsAccountsSyncing(false);
+      return;
+    }
+    if (session?.user) {
+      clearAllLoggedOutFlag();
+    }
     if (isAllLoggedOut()) {
       setServerAccounts([]);
       setIsAccountsSyncing(false);
@@ -104,7 +116,7 @@ export function UserNav({
       setIsAccountsSyncing(false);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [userRole]);
+  }, [userRole, initialAccounts, session]);
 
   // Persist accounts immediately to localStorage so reloads never flicker
   useEffect(() => {
@@ -163,6 +175,9 @@ export function UserNav({
 
   // When session updates (e.g. after adding an account via OAuth), force fresh fetch of server accounts
   useEffect(() => {
+    if (session?.user) {
+      clearAllLoggedOutFlag();
+    }
     fetchCachedServerAccounts(true)
       .then((serverAccs) => {
         if (Array.isArray(serverAccs)) {

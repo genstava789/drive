@@ -41,29 +41,27 @@ export default async function AccountLayout({
       getServerStoreState().catch(() => ({ loggedOut: false, loggedOutAt: 0, accounts: [] })),
     ]);
 
-    if (!serverState?.loggedOut) {
-      if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
-        initialAccounts = serverAccounts
-          .filter((acc) => acc && (acc.email || acc.name))
-          .map((acc, index) => ({
-            id: acc.id || `account-${index}`,
-            name: acc.name || "Akun Google",
-            // Hide owner email completely for regular users for privacy
-            email: userRole === "admin" ? acc.email || "" : "Akun Terverifikasi",
-            image: acc.image || undefined,
-            hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
-            isPrimaryEnv: Boolean(acc.isPrimaryEnv),
-          }));
-      } else if (session?.user && session.user.email) {
-        initialAccounts = [
-          {
-            id: (session.user as any).id || "primary",
-            name: session.user.name || "Akun Google",
-            email: userRole === "admin" ? session.user.email || "" : "Akun Terverifikasi",
-            image: session.user.image || undefined,
-          },
-        ];
-      }
+    if (!serverState?.loggedOut && Array.isArray(serverAccounts) && serverAccounts.length > 0) {
+      initialAccounts = serverAccounts
+        .filter((acc) => acc && (acc.email || acc.name))
+        .map((acc, index) => ({
+          id: acc.id || `account-${index}`,
+          name: acc.name || "Akun Google",
+          // Hide owner email completely for regular users for privacy
+          email: userRole === "admin" ? acc.email || "" : "Akun Terverifikasi",
+          image: acc.image || undefined,
+          hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
+          isPrimaryEnv: Boolean(acc.isPrimaryEnv),
+        }));
+    } else if (session?.user && (session.user.email || session.user.name)) {
+      initialAccounts = [
+        {
+          id: (session.user as any).id || "primary",
+          name: session.user.name || "Akun Google",
+          email: userRole === "admin" ? session.user.email || "" : "Akun Terverifikasi",
+          image: session.user.image || undefined,
+        },
+      ];
     }
   } catch (err) {
     console.warn("[AccountLayout] Failed to pre-resolve accounts:", err);

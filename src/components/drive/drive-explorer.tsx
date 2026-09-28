@@ -11,7 +11,7 @@ import { DriveGrid } from "./drive-grid";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Sparkles } from "lucide-react";
-import { getActiveAccounts, fetchCachedServerAccounts, isAllLoggedOut } from "@/lib/account-store";
+import { getActiveAccounts, fetchCachedServerAccounts, isAllLoggedOut, clearAllLoggedOutFlag } from "@/lib/account-store";
 import {
   getStoredBreadcrumbs,
   saveBreadcrumbsForFolder,
@@ -379,6 +379,9 @@ export function DriveExplorer({
   useEffect(() => {
     let isMounted = true;
     const checkAccounts = async (forceRefresh = false) => {
+      if (session?.user) {
+        clearAllLoggedOutFlag();
+      }
       if (isAllLoggedOut()) {
         if (isMounted) {
           setHasNoAccount(true);

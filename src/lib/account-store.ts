@@ -60,6 +60,7 @@ export function clearAllLoggedOutFlag(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(ALL_LOGGED_OUT_KEY);
+    localStorage.removeItem(REMOVED_ACCOUNTS_KEY);
   } catch (_) {}
 }
 
@@ -194,9 +195,8 @@ export function restoreAllAccounts() {
 export function filterAvailableAccounts(
   rawAccounts: GoogleAccount[]
 ): GoogleAccount[] {
-  if (isAllLoggedOut()) return [];
-  const removed = getStoredRemovedAccountIds();
-  return rawAccounts.filter((a, idx) => {
+  if (!rawAccounts || rawAccounts.length === 0) return [];
+  return rawAccounts.filter((a) => {
     if (!a) return false;
     const email = typeof a.email === "string" ? a.email.trim() : "";
     const name = typeof a.name === "string" ? a.name.trim() : "";
@@ -208,16 +208,6 @@ export function filterAvailableAccounts(
     ) {
       return false;
     }
-    const id = a.id || email || name;
-    if (
-      removed.includes(id) ||
-      (email && removed.includes(email)) ||
-      (name && removed.includes(name)) ||
-      (a.id && removed.includes(a.id)) ||
-      removed.includes(`account-${idx}`)
-    ) {
-      return false;
-    }
     return true;
   });
 }
@@ -226,7 +216,16 @@ export function getActiveAccounts(
   session: any,
   serverAccounts: GoogleAccount[] = []
 ): GoogleAccount[] {
-  if (isAllLoggedOut()) {
+  const hasServerAccs = Array.isArray(serverAccounts) && serverAccounts.length > 0;
+  const hasSessionUser = Boolean(
+    session?.user?.email ||
+    session?.user?.name ||
+    (Array.isArray(session?.accounts) && session.accounts.length > 0)
+  );
+
+  if (hasServerAccs || hasSessionUser) {
+    clearAllLoggedOutFlag();
+  } else if (isAllLoggedOut()) {
     return [];
   }
 
