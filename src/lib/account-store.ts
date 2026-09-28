@@ -33,7 +33,38 @@ export function saveCachedLocalStorageAccounts(accounts: GoogleAccount[]): void 
   } catch (_) {}
 }
 
+const ALL_LOGGED_OUT_KEY = "levidrive_all_logged_out";
+
+export function isAllLoggedOut(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(ALL_LOGGED_OUT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function markAllAccountsLoggedOut(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ALL_LOGGED_OUT_KEY, "true");
+    localStorage.removeItem(CACHED_ACCOUNTS_LOCALSTORAGE_KEY);
+    localStorage.removeItem("levidrive_has_google_account");
+    cachedServerAccounts = [];
+    cachedServerAccountsTime = 0;
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
+  } catch (_) {}
+}
+
+export function clearAllLoggedOutFlag(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(ALL_LOGGED_OUT_KEY);
+  } catch (_) {}
+}
+
 export function hasCachedGoogleAccounts(): boolean {
+  if (isAllLoggedOut()) return false;
   if (cachedServerAccounts.length > 0) return true;
   if (typeof window !== "undefined") {
     return getCachedLocalStorageAccounts().length > 0;
@@ -48,10 +79,11 @@ export function invalidateClientAccountsCache() {
 }
 
 export async function fetchCachedServerAccounts(force = false): Promise<GoogleAccount[]> {
+  if (isAllLoggedOut() && !force) {
+    return [];
+  }
   const now = Date.now();
   if (force) {
-    // Invalidate in-memory timestamp so fresh accounts are fetched from server,
-    // but KEEP existing cached accounts in place to prevent UI flicker!
     cachedServerAccountsTime = 0;
   } else if (cachedServerAccounts.length > 0 && now - cachedServerAccountsTime < CLIENT_ACCOUNTS_TTL_MS) {
     return cachedServerAccounts;
@@ -75,6 +107,9 @@ export async function fetchCachedServerAccounts(force = false): Promise<GoogleAc
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.accounts)) {
+          if (data.accounts.length > 0) {
+            clearAllLoggedOutFlag();
+          }
           cachedServerAccounts = data.accounts;
           cachedServerAccountsTime = Date.now();
           saveCachedLocalStorageAccounts(data.accounts);
@@ -99,24 +134,53 @@ export function getStoredRemovedAccountIds(): string[] {
   }
 }
 
-export function removeAccountById(accountId: string) {
+export function removeAccount(
+  account: Partial<GoogleAccount>,
+  index?: number
+): void {
   if (typeof window === "undefined") return;
   try {
-    invalidateClientAccountsCache();
     const current = getStoredRemovedAccountIds();
-    if (!current.includes(accountId)) {
-      current.push(accountId);
-      localStorage.setItem(REMOVED_ACCOUNTS_KEY, JSON.stringify(current));
-      window.dispatchEvent(new Event("levidrive_accounts_changed"));
+    const toAdd: string[] = [];
+    if (account.id) toAdd.push(account.id);
+    if (account.email && account.email.includes("@")) toAdd.push(account.email);
+    if (account.name) toAdd.push(account.name);
+    if (typeof index === "number") toAdd.push(`account-${index}`);
+
+    for (const item of toAdd) {
+      if (!current.includes(item)) {
+        current.push(item);
+      }
     }
+    localStorage.setItem(REMOVED_ACCOUNTS_KEY, JSON.stringify(current));
+
+    // Immediately remove from localStorage cache and in-memory cache
+    const cached = getCachedLocalStorageAccounts();
+    const updated = cached.filter((a, i) => {
+      if (typeof index === "number" && i === index) return false;
+      if (account.id && a.id === account.id) return false;
+      if (account.email && account.email.includes("@") && a.email === account.email) return false;
+      if (account.name && a.name === account.name) return false;
+      return true;
+    });
+    saveCachedLocalStorageAccounts(updated);
+    cachedServerAccounts = updated;
+    cachedServerAccountsTime = Date.now();
+
+    window.dispatchEvent(new Event("levidrive_accounts_changed"));
   } catch (err) {
     console.error("Failed to remove account:", err);
   }
 }
 
+export function removeAccountById(accountId: string) {
+  removeAccount({ id: accountId });
+}
+
 export function restoreAllAccounts() {
   if (typeof window === "undefined") return;
   try {
+    clearAllLoggedOutFlag();
     invalidateClientAccountsCache();
     localStorage.removeItem(REMOVED_ACCOUNTS_KEY);
     window.dispatchEvent(new Event("levidrive_accounts_changed"));
@@ -128,8 +192,9 @@ export function restoreAllAccounts() {
 export function filterAvailableAccounts(
   rawAccounts: GoogleAccount[]
 ): GoogleAccount[] {
+  if (isAllLoggedOut()) return [];
   const removed = getStoredRemovedAccountIds();
-  return rawAccounts.filter((a) => {
+  return rawAccounts.filter((a, idx) => {
     if (!a) return false;
     const email = typeof a.email === "string" ? a.email.trim() : "";
     const name = typeof a.name === "string" ? a.name.trim() : "";
@@ -142,7 +207,13 @@ export function filterAvailableAccounts(
       return false;
     }
     const id = a.id || email || name;
-    if (removed.includes(id) || (email && removed.includes(email))) {
+    if (
+      removed.includes(id) ||
+      (email && removed.includes(email)) ||
+      (name && removed.includes(name)) ||
+      (a.id && removed.includes(a.id)) ||
+      removed.includes(`account-${idx}`)
+    ) {
       return false;
     }
     return true;
@@ -153,6 +224,10 @@ export function getActiveAccounts(
   session: any,
   serverAccounts: GoogleAccount[] = []
 ): GoogleAccount[] {
+  if (isAllLoggedOut()) {
+    return [];
+  }
+
   let rawAccounts: GoogleAccount[] = [];
 
   // 1. Server accounts is the primary authoritative source for order (Account 0, Account 1, ...)

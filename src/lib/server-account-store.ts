@@ -435,11 +435,27 @@ export async function saveServerAccount(
 /**
  * Remove an account from server-side store
  */
-export async function removeServerAccount(accountId: string): Promise<boolean> {
+export async function removeServerAccount(
+  accountId?: string | null,
+  accountEmail?: string | null,
+  accountIndex?: number | null
+): Promise<boolean> {
   const state = await getServerStoreState();
-  state.accounts = state.accounts.filter(
-    (a) => a.id !== accountId && a.email !== accountId
-  );
+  const idToRemove = (accountId || "").trim();
+  const emailToRemove = (accountEmail || "").trim().toLowerCase();
+
+  state.accounts = state.accounts.filter((a, idx) => {
+    if (typeof accountIndex === "number" && idx === accountIndex) {
+      return false;
+    }
+    if (idToRemove && (a.id === idToRemove || a.email === idToRemove)) {
+      return false;
+    }
+    if (emailToRemove && a.email && a.email.toLowerCase() === emailToRemove) {
+      return false;
+    }
+    return true;
+  });
 
   if (state.accounts.length === 0) {
     state.loggedOut = true;
@@ -447,7 +463,8 @@ export async function removeServerAccount(accountId: string): Promise<boolean> {
   }
 
   try {
-    await removeAccountFromSupabase(accountId);
+    if (idToRemove) await removeAccountFromSupabase(idToRemove);
+    if (emailToRemove) await removeAccountFromSupabase(emailToRemove);
   } catch (_) {}
 
   await persistStoreState(state);

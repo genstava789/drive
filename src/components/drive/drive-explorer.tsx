@@ -11,7 +11,7 @@ import { DriveGrid } from "./drive-grid";
 import { getFileCategory } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Sparkles } from "lucide-react";
-import { getActiveAccounts, fetchCachedServerAccounts } from "@/lib/account-store";
+import { getActiveAccounts, fetchCachedServerAccounts, isAllLoggedOut } from "@/lib/account-store";
 import {
   getStoredBreadcrumbs,
   saveBreadcrumbsForFolder,
@@ -95,8 +95,8 @@ export function DriveExplorer({
     useState<FileCategoryFilter>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [navigatingFileId, setNavigatingFileId] = useState<string | null>(null);
-  const lastFetchedFolderIdRef = useRef<string | null>(
-    isInitialCachedFresh ? initialFolderId : null
+  const lastFetchedAccountFolderRef = useRef<string | null>(
+    isInitialCachedFresh ? `${accountIndex}_${initialFolderId}` : null
   );
 
   // Fetch Drive items from API with smart Stale-While-Revalidate & Auto-Sync
@@ -255,13 +255,57 @@ export function DriveExplorer({
     [accountIndex, initialFolderName, session]
   );
 
+  // Real-time synchronization when switching account or folder
   useEffect(() => {
-    if (lastFetchedFolderIdRef.current === currentFolderId) {
+    const key = `${accountIndex}_${currentFolderId}`;
+    if (lastFetchedAccountFolderRef.current === key) {
       return;
     }
-    lastFetchedFolderIdRef.current = currentFolderId;
-    fetchFiles(currentFolderId);
-  }, [currentFolderId, fetchFiles]);
+    lastFetchedAccountFolderRef.current = key;
+
+    const cached = clientFolderCache.get(key);
+    if (cached) {
+      setFiles(cached.files);
+      setIsLoading(false);
+      fetchFiles(currentFolderId, { isBackground: true });
+    } else {
+      setFiles([]);
+      setIsLoading(true);
+      fetchFiles(currentFolderId);
+    }
+  }, [accountIndex, currentFolderId, fetchFiles]);
+
+  // Instantly handle real-time optimistic account switch
+  useEffect(() => {
+    const handleSwitch = (e: Event) => {
+      const customEvent = e as CustomEvent<{ targetIndex: number }>;
+      const targetIdx = customEvent.detail?.targetIndex;
+      if (typeof targetIdx === "number" && targetIdx !== accountIndex) {
+        const targetCacheKey = `${targetIdx}_root`;
+        const cached = clientFolderCache.get(targetCacheKey);
+        if (cached) {
+          setFiles(cached.files);
+          setIsLoading(false);
+        } else {
+          setFiles([]);
+          setIsLoading(true);
+        }
+        setBreadcrumbs([{ id: "root", name: "My Drive" }]);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("levidrive_switch_account", handleSwitch);
+    return () => {
+      window.removeEventListener("levidrive_switch_account", handleSwitch);
+    };
+  }, [accountIndex]);
+
+  // Reset breadcrumbs and search when active account index changes
+  useEffect(() => {
+    setBreadcrumbs([{ id: "root", name: "My Drive" }]);
+    setSearchQuery("");
+    setCurrentFolderId("root");
+  }, [accountIndex]);
 
   // Global search across all folders and subfolders in Google Drive
   useEffect(() => {
@@ -319,6 +363,15 @@ export function DriveExplorer({
   useEffect(() => {
     let isMounted = true;
     const checkAccounts = async (forceRefresh = false) => {
+      if (isAllLoggedOut()) {
+        if (isMounted) {
+          setHasNoAccount(true);
+          setFiles([]);
+          clientFolderCache.clear();
+        }
+        return;
+      }
+
       let currentServerAccounts: GoogleAccount[] = [];
       try {
         currentServerAccounts = await fetchCachedServerAccounts(forceRefresh);
@@ -334,7 +387,7 @@ export function DriveExplorer({
         active.length > 0
       );
 
-      if (!isUserAuthenticated) {
+      if (!isUserAuthenticated || isAllLoggedOut()) {
         setHasNoAccount(true);
         setFiles([]);
         clientFolderCache.clear();
@@ -345,6 +398,12 @@ export function DriveExplorer({
 
     checkAccounts(Boolean(session));
     const onAccountsChanged = () => {
+      if (isAllLoggedOut()) {
+        setHasNoAccount(true);
+        setFiles([]);
+        clientFolderCache.clear();
+        return;
+      }
       clientFolderCache.clear();
       checkAccounts(true);
     };
@@ -426,7 +485,7 @@ export function DriveExplorer({
         cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
       setCurrentFolderId(folder.id);
-      lastFetchedFolderIdRef.current = folder.id;
+      lastFetchedAccountFolderRef.current = `${accountIndex}_${folder.id}`;
 
       if (cached) {
         setFiles(cached.files);
@@ -491,7 +550,7 @@ export function DriveExplorer({
           cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
         setCurrentFolderId("root");
-        lastFetchedFolderIdRef.current = "root";
+        lastFetchedAccountFolderRef.current = `${accountIndex}_root`;
         if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
@@ -516,7 +575,7 @@ export function DriveExplorer({
         const cached = clientFolderCache.get(activeCacheKey);
 
         setCurrentFolderId(folderId);
-        lastFetchedFolderIdRef.current = folderId;
+        lastFetchedAccountFolderRef.current = `${accountIndex}_${folderId}`;
         if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
@@ -559,7 +618,7 @@ export function DriveExplorer({
         cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
       setCurrentFolderId(targetFolderId);
-      lastFetchedFolderIdRef.current = targetFolderId;
+      lastFetchedAccountFolderRef.current = `${accountIndex}_${targetFolderId}`;
       if (cached) {
         setFiles(cached.files);
         setIsLoading(false);

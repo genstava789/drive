@@ -70,7 +70,11 @@ export async function DELETE(req: NextRequest) {
 
     const isAll = req.nextUrl.searchParams.get("all") === "true";
     const id = req.nextUrl.searchParams.get("id");
-    if (isAll || !id) {
+    const email = req.nextUrl.searchParams.get("email");
+    const indexParam = req.nextUrl.searchParams.get("index");
+    const accountIndex = indexParam !== null ? parseInt(indexParam, 10) : null;
+
+    if (isAll || (!id && !email && accountIndex === null)) {
       await clearAllServerAccounts();
       const response = NextResponse.json({ success: true, clearedAll: true });
       // WIPE ALL SESSION COOKIES DIRECTLY IN HTTP HEADERS ACROSS ALL VARIANTS
@@ -94,9 +98,9 @@ export async function DELETE(req: NextRequest) {
       return response;
     }
 
-    await removeServerAccount(id);
+    await removeServerAccount(id, email, accountIndex);
     const accounts = await getServerAccounts();
-    const response = NextResponse.json({ success: true, removedId: id, remaining: accounts.length });
+    const response = NextResponse.json({ success: true, removedId: id || email, remaining: accounts.length });
     if (accounts.length === 0) {
       const cookieNames = [
         "authjs.session-token",

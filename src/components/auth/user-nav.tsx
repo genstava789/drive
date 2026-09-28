@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
 import {
+  removeAccount,
   removeAccountById,
   getActiveAccounts,
   fetchCachedServerAccounts,
@@ -29,6 +30,9 @@ import {
   saveCachedLocalStorageAccounts,
   hasCachedGoogleAccounts,
   invalidateClientAccountsCache,
+  isAllLoggedOut,
+  markAllAccountsLoggedOut,
+  clearAllLoggedOutFlag,
 } from "@/lib/account-store";
 import { GoogleAccount } from "@/types/drive";
 
@@ -49,6 +53,7 @@ export function UserNav({
 
   // Initialize from initialAccounts if provided (SSR), otherwise try localStorage cache
   const [serverAccounts, setServerAccounts] = useState<GoogleAccount[]>(() => {
+    if (typeof window !== "undefined" && isAllLoggedOut()) return [];
     if (initialAccounts && initialAccounts.length > 0) return initialAccounts;
     if (typeof window !== "undefined") {
       const stored = getCachedLocalStorageAccounts();
@@ -75,6 +80,11 @@ export function UserNav({
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    if (isAllLoggedOut()) {
+      setServerAccounts([]);
+      setIsAccountsSyncing(false);
+      return;
+    }
     const stored = getCachedLocalStorageAccounts();
     if (stored && stored.length > 0) {
       setServerAccounts((prev) => {
@@ -125,6 +135,10 @@ export function UserNav({
         .then((serverAccs) => {
           if (!isMounted) return;
           if (Array.isArray(serverAccs)) {
+            if (isAllLoggedOut()) {
+              setServerAccounts([]);
+              return;
+            }
             const sanitized = serverAccs.map((acc) => ({
               ...acc,
               email: userRole === "admin" ? acc.email : "Akun Terverifikasi",
@@ -162,14 +176,28 @@ export function UserNav({
       .catch(() => {});
   }, [session, userRole]);
 
-  const activeAccount = accounts[accountIndex] || accounts[0];
+  // Real-time optimistic account switching
+  const [optimisticIndex, setOptimisticIndex] = useState<number | null>(null);
+  useEffect(() => {
+    setOptimisticIndex(null);
+  }, [accountIndex]);
+
+  const currentAccountIndex = optimisticIndex ?? accountIndex;
+  const activeAccount = accounts[currentAccountIndex] || accounts[0];
 
   const handleSwitchAccount = (targetIndex: number) => {
-    window.dispatchEvent(new Event("levidrive_accounts_changed"));
+    if (targetIndex === currentAccountIndex) return;
+    setOptimisticIndex(targetIndex);
+    window.dispatchEvent(
+      new CustomEvent("levidrive_switch_account", {
+        detail: { targetIndex },
+      })
+    );
     router.push(`/${targetIndex}`);
   };
 
   const handleAddAccount = () => {
+    clearAllLoggedOutFlag();
     signIn("google", {
       prompt: "select_account",
       callbackUrl: `/${accounts.length}`,
@@ -177,6 +205,7 @@ export function UserNav({
   };
 
   const handleGateLogout = async () => {
+    markAllAccountsLoggedOut();
     try {
       await fetch("/api/auth/gate/logout", { method: "POST" });
     } catch (_) {}
@@ -184,17 +213,22 @@ export function UserNav({
   };
 
   const handleLogoutAllAccounts = async () => {
-    try {
-      await fetch("/api/auth/accounts?all=true", { method: "DELETE" });
-    } catch (_) {}
-    try {
-      await signOut({ redirect: false });
-    } catch (_) {}
+    // 1. Immediately wipe client state: UI updates in 0ms!
+    markAllAccountsLoggedOut();
     invalidateClientAccountsCache();
     setServerAccounts([]);
     setIsAccountsSyncing(false);
     window.dispatchEvent(new Event("levidrive_accounts_changed"));
-    window.location.href = "/0";
+
+    // 2. Clear backend & NextAuth session asynchronously in background
+    try {
+      fetch("/api/auth/accounts?all=true", { method: "DELETE" }).catch(() => {});
+      signOut({ redirect: false }).catch(() => {});
+    } catch (_) {}
+
+    // 3. Navigate cleanly to root
+    router.push("/0");
+    router.refresh();
   };
 
   const handleLogoutSingleAccount = async (
@@ -203,26 +237,37 @@ export function UserNav({
     idx: number
   ) => {
     e.stopPropagation();
-    removeAccountById(account.id || account.email);
 
     if (accounts.length <= 1) {
       await handleLogoutAllAccounts();
       return;
     }
 
-    try {
-      await fetch(
-        `/api/auth/accounts?id=${encodeURIComponent(account.id || account.email)}`,
-        { method: "DELETE" }
-      );
-      setServerAccounts((prev) =>
-        prev.filter((a) => a.id !== account.id && a.email !== account.email)
-      );
-    } catch (_) {}
-
+    // 1. Immediately remove from local state & cache (0ms UI update!)
+    removeAccount(account, idx);
+    setServerAccounts((prev) => prev.filter((_, i) => i !== idx));
     window.dispatchEvent(new Event("levidrive_accounts_changed"));
-    const nextIdx = idx === accountIndex ? 0 : accountIndex > idx ? accountIndex - 1 : accountIndex;
+
+    // 2. Calculate next target index if active account is the one being logged out
+    const nextIdx =
+      idx === currentAccountIndex
+        ? 0
+        : currentAccountIndex > idx
+        ? currentAccountIndex - 1
+        : currentAccountIndex;
+
+    setOptimisticIndex(nextIdx);
+
+    // 3. Fire server deletion in background without blocking UI
+    const queryParams = new URLSearchParams();
+    if (account.id) queryParams.set("id", account.id);
+    if (account.email && account.email.includes("@")) queryParams.set("email", account.email);
+    queryParams.set("index", String(idx));
+    fetch(`/api/auth/accounts?${queryParams.toString()}`, { method: "DELETE" }).catch(() => {});
+
+    // 4. Navigate to next account
     router.push(`/${nextIdx}`);
+    router.refresh();
   };
 
   return (
