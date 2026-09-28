@@ -6,7 +6,7 @@ import {
   getValidAccessTokenForAccount,
 } from "@/lib/server-account-store";
 import { getGoogleCredentials } from "@/lib/auth-credentials";
-import { getSiteSession } from "@/lib/site-auth";
+import { getSiteSession, getSitePasswordsConfig } from "@/lib/site-auth";
 
 // In-memory cache for settings and quota (TTL 30 seconds)
 interface CachedSettings {
@@ -196,6 +196,10 @@ export async function GET(request: NextRequest) {
         totalFiles,
         totalFolders,
         totalTrash,
+      },
+      gatePasswords: {
+        adminPassword: (await getSitePasswordsConfig()).adminPassword,
+        userPassword: (await getSitePasswordsConfig()).userPassword,
       },
       timestamp: Date.now(),
     };

@@ -10,6 +10,9 @@ import {
   ArrowLeft,
   KeyRound,
   Shield,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
   HardDrive,
   FileText,
   Folder,
@@ -23,6 +26,10 @@ import {
   Sparkles,
   Database,
   ExternalLink,
+  Users,
+  Save,
+  Loader2,
+  Lock,
 } from "lucide-react";
 
 interface SettingsData {
@@ -52,6 +59,10 @@ interface SettingsData {
     totalFolders: number;
     totalTrash: number;
   };
+  gatePasswords?: {
+    adminPassword: string;
+    userPassword: string;
+  };
 }
 
 interface SettingsViewProps {
@@ -71,6 +82,17 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
   // Copy success states
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Gate passwords states (Admin & Regular User for /login)
+  const [adminPasswordInput, setAdminPasswordInput] = useState<string>("admin-drive");
+  const [userPasswordInput, setUserPasswordInput] = useState<string>("drive-levi");
+  const [originalAdminPassword, setOriginalAdminPassword] = useState<string>("admin-drive");
+  const [originalUserPassword, setOriginalUserPassword] = useState<string>("drive-levi");
+  const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
+  const [showUserPassword, setShowUserPassword] = useState<boolean>(false);
+  const [isSavingPasswords, setIsSavingPasswords] = useState<boolean>(false);
+  const [passwordSaveSuccess, setPasswordSaveSuccess] = useState<string | null>(null);
+  const [passwordSaveError, setPasswordSaveError] = useState<string | null>(null);
+
   const fetchSettings = useCallback(
     async (forceRefresh = false) => {
       setIsLoading(true);
@@ -89,6 +111,12 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
           setError("Sesi akun tidak aktif atau belum login ke Google Drive.");
         } else {
           setData(json);
+          if (json.gatePasswords) {
+            setAdminPasswordInput(json.gatePasswords.adminPassword);
+            setUserPasswordInput(json.gatePasswords.userPassword);
+            setOriginalAdminPassword(json.gatePasswords.adminPassword);
+            setOriginalUserPassword(json.gatePasswords.userPassword);
+          }
         }
       } catch (err: any) {
         setError(err.message || "Terjadi kesalahan saat memuat pengaturan");
@@ -99,9 +127,85 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     [accountIndex]
   );
 
+  const fetchGatePasswords = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/gate/passwords");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.adminPassword && json.userPassword) {
+          setAdminPasswordInput(json.adminPassword);
+          setUserPasswordInput(json.userPassword);
+          setOriginalAdminPassword(json.adminPassword);
+          setOriginalUserPassword(json.userPassword);
+        }
+      }
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     fetchSettings(false);
-  }, [fetchSettings]);
+    fetchGatePasswords();
+  }, [fetchSettings, fetchGatePasswords]);
+
+  const handleSavePasswords = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmedAdmin = adminPasswordInput.trim();
+    const trimmedUser = userPasswordInput.trim();
+
+    if (!trimmedAdmin || trimmedAdmin.length < 4) {
+      setPasswordSaveError("Password Admin minimal 4 karakter.");
+      return;
+    }
+    if (!trimmedUser || trimmedUser.length < 4) {
+      setPasswordSaveError("Password Pengguna Biasa minimal 4 karakter.");
+      return;
+    }
+
+    setIsSavingPasswords(true);
+    setPasswordSaveError(null);
+    setPasswordSaveSuccess(null);
+
+    try {
+      const res = await fetch("/api/auth/gate/passwords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminPassword: trimmedAdmin,
+          userPassword: trimmedUser,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (!res.ok || !resJson.success) {
+        throw new Error(resJson.error || "Gagal memperbarui password");
+      }
+
+      setAdminPasswordInput(resJson.adminPassword);
+      setUserPasswordInput(resJson.userPassword);
+      setOriginalAdminPassword(resJson.adminPassword);
+      setOriginalUserPassword(resJson.userPassword);
+
+      setPasswordSaveSuccess(
+        "Password berhasil diperbarui secara real-time! Perubahan langsung aktif di rute /login."
+      );
+      setTimeout(() => {
+        setPasswordSaveSuccess(null);
+      }, 5000);
+    } catch (err: any) {
+      setPasswordSaveError(err.message || "Terjadi kesalahan saat menyimpan password.");
+    } finally {
+      setIsSavingPasswords(false);
+    }
+  };
+
+  const handleResetToDefault = () => {
+    setAdminPasswordInput("admin-drive");
+    setUserPasswordInput("drive-levi");
+  };
+
+  const isPasswordsModified =
+    adminPasswordInput.trim() !== originalAdminPassword ||
+    userPasswordInput.trim() !== originalUserPassword;
 
   const copyToClipboard = (text: string, keyName: string) => {
     if (!text) return;
@@ -362,7 +466,219 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
         </div>
       </div>
 
-      {/* Row 2: Credentials Card (Client ID, Client Secret, Refresh Token) */}
+      {/* Row 2: Keamanan & Password Gerbang Akses (/login) Card */}
+      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shadow-2xs">
+              <ShieldCheck className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900">
+                  Password Gerbang Akses (/login)
+                </h2>
+                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1 font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Real-Time Sync
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500">
+                Lihat dan ubah password akses login untuk Administrator (Owner) dan Pengguna Biasa.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleSavePasswords}
+              disabled={isSavingPasswords || !isPasswordsModified}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5 rounded-lg shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              {isSavingPasswords ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Simpan Perubahan</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Feedback alerts */}
+        {passwordSaveSuccess && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-200 bg-emerald-50/90 text-xs text-emerald-800 animate-in fade-in duration-200">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <div className="flex-1 font-medium">{passwordSaveSuccess}</div>
+          </div>
+        )}
+
+        {passwordSaveError && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-rose-200 bg-rose-50/90 text-xs text-rose-800 animate-in fade-in duration-200">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <div className="flex-1 font-medium">{passwordSaveError}</div>
+          </div>
+        )}
+
+        {/* Password input cards: Grid 2 cols */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card 1: Password Admin (Owner) */}
+          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <KeyRound className="h-3.5 w-3.5 text-purple-600" />
+                <label className="text-xs font-bold text-slate-800">
+                  Password Admin (Owner)
+                </label>
+              </div>
+              <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-mono">
+                Akses Penuh
+              </Badge>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Digunakan oleh Anda untuk masuk dengan akses Owner penuh (mengelola berkas, kredensial, dan konfigurasi ini).
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type={showAdminPassword ? "text" : "password"}
+                  value={adminPasswordInput}
+                  onChange={(e) => setAdminPasswordInput(e.target.value)}
+                  placeholder="Masukkan password admin..."
+                  className="w-full font-mono text-xs px-3 py-2 pr-9 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title={showAdminPassword ? "Sembunyikan" : "Lihat password"}
+                >
+                  {showAdminPassword ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(adminPasswordInput, "admin-pass")}
+                className="h-8 px-2.5 shrink-0 text-xs border-slate-200 bg-white hover:bg-slate-50 shadow-2xs cursor-pointer"
+                title="Salin Password Admin"
+              >
+                {copiedKey === "admin-pass" ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Card 2: Password Pengguna Biasa */}
+          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-blue-600" />
+                <label className="text-xs font-bold text-slate-800">
+                  Password Pengguna Biasa
+                </label>
+              </div>
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-mono">
+                Tamu / Publik
+              </Badge>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Berikan password ini kepada pengguna biasa agar dapat menjelajahi dan mengunduh berkas tanpa akses ke pengaturan.
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type={showUserPassword ? "text" : "password"}
+                  value={userPasswordInput}
+                  onChange={(e) => setUserPasswordInput(e.target.value)}
+                  placeholder="Masukkan password pengguna..."
+                  className="w-full font-mono text-xs px-3 py-2 pr-9 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowUserPassword(!showUserPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title={showUserPassword ? "Sembunyikan" : "Lihat password"}
+                >
+                  {showUserPassword ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(userPasswordInput, "user-pass")}
+                className="h-8 px-2.5 shrink-0 text-xs border-slate-200 bg-white hover:bg-slate-50 shadow-2xs cursor-pointer"
+                title="Salin Password Pengguna"
+              >
+                {copiedKey === "user-pass" ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Action bar and quick tips */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+            <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span>
+              Perubahan langsung tersimpan ke Supabase &amp; aktif pada rute <span className="font-mono text-slate-700 font-semibold">/login</span> secara seketika.
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetToDefault}
+              disabled={isSavingPasswords || (adminPasswordInput === "admin-drive" && userPasswordInput === "drive-levi")}
+              className="h-7.5 px-2.5 text-xs text-slate-600 border-slate-200 hover:bg-slate-50 cursor-pointer"
+            >
+              Reset Default
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSavePasswords}
+              disabled={isSavingPasswords || !isPasswordsModified}
+              className="h-7.5 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              {isSavingPasswords ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3" />
+                  <span>Simpan Password</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Credentials Card (Client ID, Client Secret, Refresh Token) */}
       <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">

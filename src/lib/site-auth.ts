@@ -134,9 +134,267 @@ export async function verifyPasswordWithHash(
   }
 }
 
+export interface SitePasswordsConfig {
+  adminPassword: string;
+  userPassword: string;
+  updatedAt?: number;
+}
+
+// In-memory cache for ultra-fast verification (5-second TTL for cross-instance real-time sync)
+let memoryPasswordsConfig: SitePasswordsConfig | null = null;
+let memoryPasswordsLoadedAt = 0;
+const PASSWORDS_CACHE_TTL_MS = 5000;
+
+function getKvConfig() {
+  const url =
+    process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    "";
+  if (url && token) {
+    return { url: url.replace(/\/$/, ""), token };
+  }
+  return null;
+}
+
+async function fetchPasswordsFromKv(): Promise<SitePasswordsConfig | null> {
+  const kv = getKvConfig();
+  if (!kv) return null;
+  try {
+    const res = await fetch(`${kv.url}/get/levidrive_gate_passwords`, {
+      headers: { Authorization: `Bearer ${kv.token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.result) return null;
+    const parsed =
+      typeof json.result === "string" ? JSON.parse(json.result) : json.result;
+    if (parsed?.adminPassword && parsed?.userPassword) {
+      return {
+        adminPassword: String(parsed.adminPassword).trim(),
+        userPassword: String(parsed.userPassword).trim(),
+        updatedAt: Number(parsed.updatedAt) || Date.now(),
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function savePasswordsToKv(config: SitePasswordsConfig): Promise<void> {
+  const kv = getKvConfig();
+  if (!kv) return;
+  try {
+    await fetch(`${kv.url}/set/levidrive_gate_passwords`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${kv.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(JSON.stringify(config)),
+    });
+  } catch (_) {}
+}
+
+async function readLocalFilePasswords(): Promise<SitePasswordsConfig | null> {
+  if (typeof process === "undefined" || !process.versions?.node) return null;
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const os = await import("os");
+    const paths = [
+      path.join(process.cwd(), ".site-passwords.json"),
+      path.join(os.tmpdir(), ".site-passwords.json"),
+    ];
+    for (const p of paths) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ p)) {
+        const raw = fs.readFileSync(/*turbopackIgnore: true*/ p, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed?.adminPassword && parsed?.userPassword) {
+          return {
+            adminPassword: String(parsed.adminPassword).trim(),
+            userPassword: String(parsed.userPassword).trim(),
+            updatedAt: Number(parsed.updatedAt) || Date.now(),
+          };
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function saveLocalFilePasswords(config: SitePasswordsConfig): Promise<void> {
+  if (typeof process === "undefined" || !process.versions?.node) return;
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const os = await import("os");
+    const paths = [
+      path.join(process.cwd(), ".site-passwords.json"),
+      path.join(os.tmpdir(), ".site-passwords.json"),
+    ];
+    const data = JSON.stringify(config, null, 2);
+    for (const p of paths) {
+      try {
+        fs.writeFileSync(/*turbopackIgnore: true*/ p, data, "utf-8");
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+async function fetchPasswordsFromSupabase(): Promise<SitePasswordsConfig | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("drive_sync_state")
+      .select("start_page_token")
+      .eq("account_id", "system_gate_passwords")
+      .maybeSingle();
+
+    if (!error && data?.start_page_token) {
+      const parsed = JSON.parse(data.start_page_token);
+      if (parsed?.adminPassword && parsed?.userPassword) {
+        return {
+          adminPassword: String(parsed.adminPassword).trim(),
+          userPassword: String(parsed.userPassword).trim(),
+          updatedAt: Number(parsed.updatedAt) || Date.now(),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[SiteAuth] Error reading passwords from Supabase:", err);
+  }
+  return null;
+}
+
+async function savePasswordsToSupabase(config: SitePasswordsConfig): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  try {
+    await supabase.from("drive_sync_state").upsert({
+      account_id: "system_gate_passwords",
+      start_page_token: JSON.stringify(config),
+      last_synced_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("[SiteAuth] Error saving passwords to Supabase:", err);
+  }
+
+  // Also update site_passwords table if it exists in Supabase
+  try {
+    const [adminHash, userHash] = await Promise.all([
+      hashPassword(config.adminPassword),
+      hashPassword(config.userPassword),
+    ]);
+    await supabase.from("site_passwords").upsert([
+      {
+        role: "admin",
+        password_hash: adminHash.hash,
+        salt: adminHash.salt,
+        description: "Owner / Administrator Access",
+        updated_at: new Date().toISOString(),
+      },
+      {
+        role: "user",
+        password_hash: userHash.hash,
+        salt: userHash.salt,
+        description: "Pengguna Biasa / Guest Access",
+        updated_at: new Date().toISOString(),
+      },
+    ]);
+  } catch (_) {
+    // Non-fatal if site_passwords table doesn't exist
+  }
+}
+
 /**
- * Verifies submitted password against Supabase `site_passwords` table
- * Falls back to default passwords ("drive-levi" -> "user", "admin-drive" -> "admin")
+ * Get current gate passwords for Admin and Regular User with real-time caching
+ */
+export async function getSitePasswordsConfig(
+  forceRefresh = false
+): Promise<SitePasswordsConfig> {
+  if (
+    !forceRefresh &&
+    memoryPasswordsConfig &&
+    Date.now() - memoryPasswordsLoadedAt < PASSWORDS_CACHE_TTL_MS
+  ) {
+    return memoryPasswordsConfig;
+  }
+
+  // 1. Try Supabase
+  let loaded = await fetchPasswordsFromSupabase();
+
+  // 2. Try KV
+  if (!loaded) {
+    loaded = await fetchPasswordsFromKv();
+  }
+
+  // 3. Try local file
+  if (!loaded) {
+    loaded = await readLocalFilePasswords();
+  }
+
+  // 4. Default configuration fallback
+  const defaultAdmin =
+    process.env.SITE_ADMIN_PASSWORD ||
+    process.env.ADMIN_PASSWORD ||
+    DEFAULT_ADMIN_PASSWORD;
+  const defaultUser =
+    process.env.SITE_USER_PASSWORD ||
+    process.env.USER_PASSWORD ||
+    DEFAULT_USER_PASSWORD;
+
+  const result: SitePasswordsConfig = {
+    adminPassword: loaded?.adminPassword || defaultAdmin,
+    userPassword: loaded?.userPassword || defaultUser,
+    updatedAt: loaded?.updatedAt || Date.now(),
+  };
+
+  memoryPasswordsConfig = result;
+  memoryPasswordsLoadedAt = Date.now();
+  return result;
+}
+
+/**
+ * Update gate passwords in real-time across Supabase, KV, local file, and memory
+ */
+export async function updateSitePasswordsConfig(
+  newConfig: Partial<SitePasswordsConfig>
+): Promise<SitePasswordsConfig> {
+  const current = await getSitePasswordsConfig(true);
+  const updatedAdmin =
+    typeof newConfig.adminPassword === "string" && newConfig.adminPassword.trim()
+      ? newConfig.adminPassword.trim()
+      : current.adminPassword;
+
+  const updatedUser =
+    typeof newConfig.userPassword === "string" && newConfig.userPassword.trim()
+      ? newConfig.userPassword.trim()
+      : current.userPassword;
+
+  const finalConfig: SitePasswordsConfig = {
+    adminPassword: updatedAdmin,
+    userPassword: updatedUser,
+    updatedAt: Date.now(),
+  };
+
+  memoryPasswordsConfig = finalConfig;
+  memoryPasswordsLoadedAt = Date.now();
+
+  // Persist across all tiers asynchronously
+  await Promise.allSettled([
+    savePasswordsToSupabase(finalConfig),
+    savePasswordsToKv(finalConfig),
+    saveLocalFilePasswords(finalConfig),
+  ]);
+
+  return finalConfig;
+}
+
+/**
+ * Verifies submitted password against dynamic real-time passwords and Supabase site_passwords table
  */
 export async function verifySitePassword(
   password: string
@@ -146,8 +404,19 @@ export async function verifySitePassword(
   }
 
   const trimmedPassword = password.trim();
+  const config = await getSitePasswordsConfig();
 
-  // 1. Try querying Supabase site_passwords table
+  // 1. Direct match with configured Admin Password
+  if (trimmedPassword === config.adminPassword) {
+    return { valid: true, role: "admin" };
+  }
+
+  // 2. Direct match with configured Regular User Password
+  if (trimmedPassword === config.userPassword) {
+    return { valid: true, role: "user" };
+  }
+
+  // 3. Fallback: check Supabase site_passwords table if someone set custom hashes
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
@@ -156,9 +425,9 @@ export async function verifySitePassword(
         .select("role, password_hash, salt");
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        // Check admin role first
+        // Check admin role
         const adminRow = data.find((r) => r.role === "admin");
-        if (adminRow && adminRow.password_hash && adminRow.salt) {
+        if (adminRow?.password_hash && adminRow?.salt) {
           const isAdmin = await verifyPasswordWithHash(
             trimmedPassword,
             adminRow.password_hash,
@@ -171,7 +440,7 @@ export async function verifySitePassword(
 
         // Check user role
         const userRow = data.find((r) => r.role === "user");
-        if (userRow && userRow.password_hash && userRow.salt) {
+        if (userRow?.password_hash && userRow?.salt) {
           const isUser = await verifyPasswordWithHash(
             trimmedPassword,
             userRow.password_hash,
@@ -185,18 +454,6 @@ export async function verifySitePassword(
     } catch (err) {
       console.warn("[SiteAuth] Error querying Supabase site_passwords:", err);
     }
-  }
-
-  // 2. Fallback to default configured passwords
-  if (trimmedPassword === DEFAULT_ADMIN_PASSWORD) {
-    // Optionally seed/upsert into Supabase in the background
-    seedSupabasePasswordsIfMissing().catch(() => {});
-    return { valid: true, role: "admin" };
-  }
-
-  if (trimmedPassword === DEFAULT_USER_PASSWORD) {
-    seedSupabasePasswordsIfMissing().catch(() => {});
-    return { valid: true, role: "user" };
   }
 
   return { valid: false };
