@@ -243,12 +243,12 @@ export function FileDetailView({
               }
             }
           }}
-          className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0"
+          className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
           title={`Kembali ke ${parentFolder?.name || "My Drive"}`}
         >
           <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Link>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 overflow-x-auto no-scrollbar min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
           {parentBreadcrumbs.map((crumb, idx) => {
             const isRoot = crumb.id === "root" || crumb.id === "0AAgz7sm0L0i1Uk9PVA";
             const crumbUrl = isRoot
@@ -257,7 +257,7 @@ export function FileDetailView({
 
             return (
               <React.Fragment key={crumb.id}>
-                {idx > 0 && <span className="shrink-0 text-slate-400 dark:text-slate-600">/</span>}
+                {idx > 0 && <span className="shrink-0 text-slate-400">/</span>}
                 <Link
                   href={crumbUrl}
                   prefetch={true}
@@ -270,16 +270,16 @@ export function FileDetailView({
                       }
                     }
                   }}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 font-medium whitespace-nowrap shrink-0 transition-colors"
+                  className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0 transition-colors"
                 >
                   {crumb.name}
                 </Link>
               </React.Fragment>
             );
           })}
-          <span className="shrink-0 text-slate-400 dark:text-slate-600">/</span>
+          <span className="shrink-0 text-slate-400">/</span>
           <span
-            className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"
+            className="font-semibold text-slate-900 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"
             title={file.name}
           >
             {file.name}

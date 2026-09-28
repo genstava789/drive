@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *, .midnight, .midnight *));
+
 :root {
   /* White Theme Foundation */
   --background: #F6F7F9;
@@ -609,14 +611,18 @@
 
 /* Circular Buttons (Navigation, Refresh, Back Button) */
 .midnight button.rounded-full.border,
-.dark button.rounded-full.border {
+.midnight a.rounded-full.border,
+.dark button.rounded-full.border,
+.dark a.rounded-full.border {
   background-color: #162032 !important;
   border-color: #1E293B !important;
   color: #CBD5E1 !important;
 }
 
 .midnight button.rounded-full.border:hover,
-.dark button.rounded-full.border:hover {
+.midnight a.rounded-full.border:hover,
+.dark button.rounded-full.border:hover,
+.dark a.rounded-full.border:hover {
   background-color: #1E293B !important;
   color: #FFFFFF !important;
 }
