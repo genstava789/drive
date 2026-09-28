@@ -33,6 +33,14 @@ export function saveCachedLocalStorageAccounts(accounts: GoogleAccount[]): void 
   } catch (_) {}
 }
 
+export function hasCachedGoogleAccounts(): boolean {
+  if (cachedServerAccounts.length > 0) return true;
+  if (typeof window !== "undefined") {
+    return getCachedLocalStorageAccounts().length > 0;
+  }
+  return false;
+}
+
 export function invalidateClientAccountsCache() {
   cachedServerAccounts = [];
   cachedServerAccountsTime = 0;
@@ -42,10 +50,15 @@ export function invalidateClientAccountsCache() {
 export async function fetchCachedServerAccounts(force = false): Promise<GoogleAccount[]> {
   const now = Date.now();
   if (force) {
-    invalidateClientAccountsCache();
+    // Invalidate in-memory timestamp so fresh accounts are fetched from server,
+    // but KEEP existing cached accounts in place to prevent UI flicker!
+    cachedServerAccountsTime = 0;
   } else if (cachedServerAccounts.length > 0 && now - cachedServerAccountsTime < CLIENT_ACCOUNTS_TTL_MS) {
     return cachedServerAccounts;
-  } else if (!cachedServerAccounts || cachedServerAccounts.length === 0) {
+  }
+
+  // Pre-seed from localStorage if in-memory cache is empty
+  if (!cachedServerAccounts || cachedServerAccounts.length === 0) {
     const fromLocal = getCachedLocalStorageAccounts();
     if (fromLocal.length > 0) {
       cachedServerAccounts = fromLocal;

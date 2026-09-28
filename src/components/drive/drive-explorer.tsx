@@ -20,6 +20,7 @@ import {
 } from "@/lib/breadcrumbs";
 import { DriveTableSkeleton } from "./drive-table-skeleton";
 import { FileDetailSkeleton } from "./file-detail-skeleton";
+import { startTopbarLoading, stopTopbarLoading } from "@/components/ui/topbar-progress";
 
 interface ClientFolderCacheEntry {
   files: DriveFile[];
@@ -98,39 +99,64 @@ export function DriveExplorer({
     isInitialCachedFresh ? initialFolderId : null
   );
 
-  // Fetch Drive items from API
+  // Fetch Drive items from API with smart Stale-While-Revalidate & Auto-Sync
   const fetchFiles = useCallback(
-    async (folderId: string, isManualRefresh = false) => {
+    async (
+      folderId: string,
+      options: { isManualRefresh?: boolean; isBackground?: boolean } = {}
+    ) => {
+      const { isManualRefresh = false, isBackground = false } = options;
       const activeCacheKey = `${accountIndex}_${folderId}`;
       const cached = clientFolderCache.get(activeCacheKey);
-      const isFresh =
-        cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
-      // If fresh cache exists and not manual refresh, use it immediately
-      if (isFresh && !isManualRefresh) {
+      // Instant display: if cached files exist and not manual refresh, show immediately
+      if (cached && !isManualRefresh && !isBackground) {
         setFiles(cached.files);
         setIsLoading(false);
-        return;
-      }
-
-      if (!cached || isManualRefresh) {
+      } else if (!cached && !isBackground) {
         setIsLoading(true);
       }
 
+      startTopbarLoading();
       setError(null);
+
       try {
-        const res = await fetch(
-          `/api/drive?folderId=${encodeURIComponent(
-            folderId
-          )}&accountIndex=${accountIndex}${isManualRefresh ? "&refresh=true" : ""}`,
-          { cache: "no-store" }
-        );
+        const queryParams = new URLSearchParams({
+          folderId,
+          accountIndex: String(accountIndex),
+        });
+        if (isManualRefresh) {
+          queryParams.set("refresh", "true");
+        } else {
+          queryParams.set("autoSync", "true");
+        }
+
+        const res = await fetch(`/api/drive?${queryParams.toString()}`, {
+          cache: "no-store",
+        });
+
         if (!res.ok) {
           throw new Error(`Gagal memuat berkas: ${res.statusText}`);
         }
+
         const data: DriveResponse = await res.json();
         const incomingFiles = data.files || [];
-        setFiles(incomingFiles);
+
+        // Check if files changed: update state cleanly without flickering
+        setFiles((prevFiles) => {
+          if (
+            prevFiles.length !== incomingFiles.length ||
+            incomingFiles.some(
+              (f, idx) =>
+                f.id !== prevFiles[idx]?.id ||
+                f.modifiedTime !== prevFiles[idx]?.modifiedTime
+            )
+          ) {
+            return incomingFiles;
+          }
+          return prevFiles;
+        });
+
         setIsMockData(data.isMockData ?? false);
 
         // Authoritative authentication state from server:
@@ -205,13 +231,16 @@ export function DriveExplorer({
         }
       } catch (err: any) {
         console.error("Fetch error:", err);
-        setError(err.message || "Terjadi kesalahan saat memuat berkas");
-        if (!cached) setFiles([]);
+        if (!isBackground) {
+          setError(err.message || "Terjadi kesalahan saat memuat berkas");
+          if (!cached) setFiles([]);
+        }
       } finally {
         setIsLoading(false);
+        stopTopbarLoading();
       }
     },
-    [accountIndex, initialFolderName]
+    [accountIndex, initialFolderName, session]
   );
 
   useEffect(() => {
@@ -248,6 +277,7 @@ export function DriveExplorer({
     searchTimeoutRef.current = setTimeout(async () => {
       setIsSearching(true);
       setIsGlobalSearchActive(true);
+      startTopbarLoading();
       try {
         const res = await fetch(
           `/api/drive?folderId=${encodeURIComponent(
@@ -262,6 +292,7 @@ export function DriveExplorer({
         console.error("Pencarian global error:", err);
       } finally {
         setIsSearching(false);
+        stopTopbarLoading();
       }
     }, 350);
 
@@ -388,9 +419,8 @@ export function DriveExplorer({
       if (cached) {
         setFiles(cached.files);
         setIsLoading(false);
-        if (!isFresh) {
-          fetchFiles(folder.id);
-        }
+        // Automatically revalidate in background to check for new/modified files
+        fetchFiles(folder.id, { isBackground: true });
       } else {
         setFiles([]);
         setIsLoading(true);
@@ -419,6 +449,7 @@ export function DriveExplorer({
         );
       }
 
+      startTopbarLoading();
       React.startTransition(() => {
         router.push(`/${accountIndex}/file/${file.id}`);
       });
@@ -453,9 +484,8 @@ export function DriveExplorer({
         if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
-          if (!isFresh) {
-            fetchFiles("root");
-          }
+          // Automatically revalidate in background
+          fetchFiles("root", { isBackground: true });
         } else {
           setFiles([]);
           setIsLoading(true);
@@ -473,17 +503,14 @@ export function DriveExplorer({
 
         const activeCacheKey = `${accountIndex}_${folderId}`;
         const cached = clientFolderCache.get(activeCacheKey);
-        const isFresh =
-          cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
 
         setCurrentFolderId(folderId);
         lastFetchedFolderIdRef.current = folderId;
         if (cached) {
           setFiles(cached.files);
           setIsLoading(false);
-          if (!isFresh) {
-            fetchFiles(folderId);
-          }
+          // Automatically revalidate in background
+          fetchFiles(folderId, { isBackground: true });
         } else {
           setFiles([]);
           setIsLoading(true);
@@ -525,9 +552,7 @@ export function DriveExplorer({
       if (cached) {
         setFiles(cached.files);
         setIsLoading(false);
-        if (!isFresh) {
-          fetchFiles(targetFolderId);
-        }
+        fetchFiles(targetFolderId, { isBackground: true });
       } else {
         setFiles([]);
         setIsLoading(true);
@@ -549,6 +574,31 @@ export function DriveExplorer({
       window.removeEventListener("levidrive_navigate_root", handleNavigateRoot);
     };
   }, [handleBreadcrumbNavigate]);
+
+  // Autonomous background sync when returning to tab or window focus
+  useEffect(() => {
+    const handleRevalidate = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchFiles(currentFolderId, { isBackground: true });
+      }
+    };
+    document.addEventListener("visibilitychange", handleRevalidate);
+    window.addEventListener("focus", handleRevalidate);
+    return () => {
+      document.removeEventListener("visibilitychange", handleRevalidate);
+      window.removeEventListener("focus", handleRevalidate);
+    };
+  }, [currentFolderId, fetchFiles]);
+
+  // Periodic autonomous sync (every 30 seconds when tab is active and not searching)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible" && !searchQuery.trim()) {
+        fetchFiles(currentFolderId, { isBackground: true });
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [currentFolderId, fetchFiles, searchQuery]);
 
   // Idle prefetching: automatically prefetch immediate subfolders when idle
   useEffect(() => {
@@ -604,7 +654,7 @@ export function DriveExplorer({
           onCategoryChange={setSelectedCategory}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onRefresh={() => fetchFiles(currentFolderId, true)}
+          onRefresh={() => fetchFiles(currentFolderId, { isManualRefresh: true })}
           isLoading={isLoading || isSearching}
           isMockData={isMockData}
         />

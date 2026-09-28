@@ -26,6 +26,8 @@ import {
   getActiveAccounts,
   fetchCachedServerAccounts,
   getCachedLocalStorageAccounts,
+  saveCachedLocalStorageAccounts,
+  hasCachedGoogleAccounts,
   invalidateClientAccountsCache,
 } from "@/lib/account-store";
 import { GoogleAccount } from "@/types/drive";
@@ -69,6 +71,24 @@ export function UserNav({
       email: "Akun Terverifikasi",
     }));
   }, [session, serverAccounts, userRole]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Persist accounts immediately to localStorage so reloads never flicker
+  useEffect(() => {
+    if (initialAccounts && initialAccounts.length > 0) {
+      saveCachedLocalStorageAccounts(initialAccounts);
+    }
+  }, [initialAccounts]);
+
+  useEffect(() => {
+    if (accounts && accounts.length > 0) {
+      saveCachedLocalStorageAccounts(accounts);
+    }
+  }, [accounts]);
 
   // Track if we are still syncing initial accounts
   const [isAccountsSyncing, setIsAccountsSyncing] = useState<boolean>(() => {
@@ -350,7 +370,7 @@ export function UserNav({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : isAccountsSyncing || status === "loading" ? (
+        ) : !mounted || isAccountsSyncing || status === "loading" || (accounts.length === 0 && hasCachedGoogleAccounts()) ? (
           <div className="h-8 w-8 rounded-full bg-slate-200/80 animate-pulse" />
         ) : userRole === "admin" ? (
           /* Confirmed no active accounts logged in - Only Admin can login Google */

@@ -5,6 +5,7 @@ import {
   getDriveItemById,
   getFolderBreadcrumbs,
   syncDriveChangesForAccount,
+  shouldAutoSync,
 } from "@/lib/google-drive";
 import {
   getServerStoreState,
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     const forceRefresh =
       searchParams.get("refresh") === "true" ||
       searchParams.get("demo") === "true";
+    const autoSync = searchParams.get("autoSync") === "true";
 
     const [session, serverState, serverAccounts] = await Promise.all([
       auth(),
@@ -103,8 +105,9 @@ export async function GET(request: NextRequest) {
       query
     );
 
-    // If manual refresh requested, trigger incremental sync in the background
-    if (forceRefresh) {
+    // Intelligently trigger incremental sync in the background:
+    // When manual refresh requested, or autoSync requested, or throttle window elapsed
+    if (forceRefresh || autoSync || shouldAutoSync(accountIndex)) {
       syncDriveChangesForAccount(accountIndex).catch(() => {});
     }
 
@@ -119,7 +122,7 @@ export async function GET(request: NextRequest) {
       } catch (_) {}
     }
 
-    const cacheHeader = forceRefresh
+    const cacheHeader = forceRefresh || autoSync
       ? "no-store, no-cache, must-revalidate"
       : "private, max-age=10, stale-while-revalidate=60";
 

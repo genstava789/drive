@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UserNav } from "@/components/auth/user-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { TopbarProgress } from "@/components/ui/topbar-progress";
 import { Heart } from "lucide-react";
 import { getServerAccounts, getServerStoreState } from "@/lib/server-account-store";
 import { auth } from "@/lib/auth";
@@ -70,6 +71,7 @@ export default async function AccountLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7F9] text-slate-800 antialiased">
+      <TopbarProgress />
       {/* Persistent Top Navbar Header - Always visible, never replaced by loading skeleton */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">

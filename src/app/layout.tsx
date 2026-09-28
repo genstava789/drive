@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/auth/session-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { auth } from "@/lib/auth";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -27,11 +28,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth().catch(() => null);
+
   return (
     <html
       lang="id"
@@ -50,7 +53,7 @@ export default function RootLayout({
             midnight: "midnight",
           }}
         >
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider session={session}>{children}</SessionProvider>
         </ThemeProvider>
       </body>
     </html>

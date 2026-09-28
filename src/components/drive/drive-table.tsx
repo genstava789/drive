@@ -130,17 +130,13 @@ export function DriveTable({
   const handleSort = (columnId: string) => {
     setSorting((prev) => {
       const current = prev.find((s) => s.id === columnId);
-      if (columnId === "name") {
-        return [{ id: "name", desc: current ? !current.desc : false }];
-      }
       if (!current) {
-        return [{ id: columnId, desc: false }];
-      } else if (!current.desc) {
-        return [{ id: columnId, desc: true }];
-      } else {
-        // 3rd click: Revert back to default order!
-        return [{ id: "name", desc: false }];
+        // Date (modifiedTime) and Size naturally start with descending (newest first, largest first)
+        const initialDesc = columnId === "modifiedTime" || columnId === "size";
+        return [{ id: columnId, desc: initialDesc }];
       }
+      // Keep cycle strictly on the same column (toggle descending <-> ascending)
+      return [{ id: columnId, desc: !current.desc }];
     });
   };
 
@@ -319,7 +315,7 @@ export function DriveTable({
             <button
               className="hidden sm:flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
               onClick={() => handleSort("size")}
-              title="Urutkan berdasarkan Ukuran (Klik ke-3 untuk kembali ke semula)"
+              title="Urutkan berdasarkan Ukuran (Terbesar / Terkecil)"
             >
               <span>Ukuran</span>
               {isSorted === "asc" ? (
@@ -355,7 +351,7 @@ export function DriveTable({
             <button
               className="hidden md:flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 transition cursor-pointer select-none text-xs"
               onClick={() => handleSort("modifiedTime")}
-              title="Urutkan berdasarkan Waktu Diubah (Klik ke-3 untuk kembali ke semula)"
+              title="Urutkan berdasarkan Waktu Diubah (Terbaru / Terlama)"
             >
               <span>Diubah</span>
               {isSorted === "asc" ? (

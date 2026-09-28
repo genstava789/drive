@@ -35,6 +35,19 @@ interface CachedBreadcrumbsResult {
 const folderBreadcrumbsCache = new Map<string, CachedBreadcrumbsResult>();
 const BREADCRUMB_CACHE_TTL_MS = 300000; // 5 minutes breadcrumbs cache
 
+// Auto-sync throttle per account to prevent excessive API hits while syncing changes autonomously
+const lastSyncTimePerAccount = new Map<number, number>();
+const AUTO_SYNC_THROTTLE_MS = 15000; // 15 seconds throttle
+
+export function shouldAutoSync(accountIndex: number): boolean {
+  const last = lastSyncTimePerAccount.get(accountIndex) || 0;
+  return Date.now() - last > AUTO_SYNC_THROTTLE_MS;
+}
+
+export function recordSyncTime(accountIndex: number): void {
+  lastSyncTimePerAccount.set(accountIndex, Date.now());
+}
+
 export function clearServerDriveCache(): void {
   driveFolderCache.clear();
   driveItemCache.clear();
@@ -109,6 +122,18 @@ export async function getDriveFiles(
         };
 
         driveFolderCache.set(cacheKey, { data: result, timestamp: Date.now() });
+
+        // Trigger autonomous background sync if throttle window passed
+        if (shouldAutoSync(accountIndex)) {
+          syncDriveChangesForAccount(accountIndex)
+            .then((res) => {
+              if (res.changesCount > 0 || res.removedCount > 0) {
+                driveFolderCache.clear();
+              }
+            })
+            .catch(() => {});
+        }
+
         return result;
       }
     } catch (err) {
@@ -367,6 +392,7 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
   newStartPageToken?: string;
   message?: string;
 }> {
+  recordSyncTime(accountIndex);
   const serverState = await getServerStoreState();
   const accountId = resolveAccountId(serverState, accountIndex);
 
