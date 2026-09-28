@@ -74,6 +74,12 @@ export function DriveGrid({
             `drive_breadcrumbs_${file.id}`,
             JSON.stringify(currentBreadcrumbs || [{ id: "root", name: "My Drive" }])
           );
+          sessionStorage.setItem(
+            "drive_from_folder_url",
+            parentId !== "root" && parentId !== "0AAgz7sm0L0i1Uk9PVA"
+              ? `/${accountIndex}/${parentId}?type=folder`
+              : `/${accountIndex}`
+          );
         }
         router.push(`/${accountIndex}/file/${file.id}`);
       }

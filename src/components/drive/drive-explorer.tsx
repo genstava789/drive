@@ -300,12 +300,28 @@ export function DriveExplorer({
     };
   }, [accountIndex]);
 
-  // Reset breadcrumbs and search when active account index changes
+  // Reset breadcrumbs and search only when active account index actually changes (not on initial mount)
+  const prevAccountIndexRef = useRef(accountIndex);
   useEffect(() => {
-    setBreadcrumbs([{ id: "root", name: "My Drive" }]);
-    setSearchQuery("");
-    setCurrentFolderId("root");
+    if (prevAccountIndexRef.current !== accountIndex) {
+      prevAccountIndexRef.current = accountIndex;
+      setBreadcrumbs([{ id: "root", name: "My Drive" }]);
+      setSearchQuery("");
+      setCurrentFolderId("root");
+    }
   }, [accountIndex]);
+
+  // Sync state when initialFolderId prop changes (e.g. from route navigation)
+  const prevInitialFolderIdRef = useRef(initialFolderId);
+  useEffect(() => {
+    if (prevInitialFolderIdRef.current !== initialFolderId) {
+      prevInitialFolderIdRef.current = initialFolderId;
+      setCurrentFolderId(initialFolderId);
+      if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
+        setBreadcrumbs(initialBreadcrumbs);
+      }
+    }
+  }, [initialFolderId, initialBreadcrumbs]);
 
   // Global search across all folders and subfolders in Google Drive
   useEffect(() => {
@@ -507,16 +523,26 @@ export function DriveExplorer({
       setNavigatingFileId(file.id);
 
       const parentId =
-        breadcrumbs?.[breadcrumbs.length - 1]?.id || "root";
+        currentFolderId !== "root"
+          ? currentFolderId
+          : breadcrumbs?.[breadcrumbs.length - 1]?.id || "root";
 
       if (typeof window !== "undefined") {
         sessionStorage.setItem("drive_navigating_id", file.id);
         sessionStorage.setItem("drive_navigating_type", "file");
         sessionStorage.setItem(`drive_type_${file.id}`, "file");
         sessionStorage.setItem(`drive_parent_${file.id}`, parentId);
+        if (breadcrumbs && breadcrumbs.length > 0) {
+          sessionStorage.setItem(
+            `drive_breadcrumbs_${file.id}`,
+            JSON.stringify(breadcrumbs)
+          );
+        }
         sessionStorage.setItem(
-          `drive_breadcrumbs_${file.id}`,
-          JSON.stringify(breadcrumbs || [{ id: "root", name: "My Drive" }])
+          "drive_from_folder_url",
+          parentId !== "root" && parentId !== "0AAgz7sm0L0i1Uk9PVA"
+            ? `/${accountIndex}/${parentId}?type=folder`
+            : `/${accountIndex}`
         );
       }
 
@@ -524,7 +550,7 @@ export function DriveExplorer({
         router.push(`/${accountIndex}/file/${file.id}`);
       });
     },
-    [accountIndex, breadcrumbs, router]
+    [accountIndex, breadcrumbs, currentFolderId, router]
   );
 
   // Navigate using breadcrumb instantly

@@ -603,18 +603,23 @@ export async function getFolderBreadcrumbs(
     const item = await getDriveItemById(currentId, accessToken, accountIndex);
     if (!item) break;
 
-    // Stop if this is the Drive Root itself (e.g. named "My Drive" or has no parents)
+    // Stop if this item is the Drive Root itself
     if (
+      item.id === "root" ||
       item.id === "0AAgz7sm0L0i1Uk9PVA" ||
-      item.name.toLowerCase() === "my drive" ||
-      !item.parents ||
-      item.parents.length === 0
+      item.name?.toLowerCase() === "my drive"
     ) {
       break;
     }
 
     chain.unshift({ id: item.id, name: item.name });
-    currentId = item.parents?.[0];
+
+    const parentId = item.parents?.[0];
+    if (!parentId || parentId === "root" || parentId === "0AAgz7sm0L0i1Uk9PVA") {
+      break;
+    }
+
+    currentId = parentId;
     depth++;
   }
 

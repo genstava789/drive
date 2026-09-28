@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { DriveFile, BreadcrumbItem } from "@/types/drive";
@@ -40,6 +41,7 @@ export function FileDetailView({
   accountIndex,
   initialBreadcrumbs,
 }: FileDetailViewProps) {
+  const router = useRouter();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -151,20 +153,30 @@ export function FileDetailView({
   ];
 
   const parentBreadcrumbs = React.useMemo(() => {
+    // 1. Check if full breadcrumbs were stored in sessionStorage for this file
     if (typeof window !== "undefined") {
       const stored = sessionStorage.getItem(`drive_breadcrumbs_${file.id}`);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 1) return parsed;
         } catch (_) {}
       }
-      const parentId = sessionStorage.getItem(`drive_parent_${file.id}`) || file.parents?.[0];
+    }
+
+    // 2. Check if parentId is known and has stored breadcrumbs
+    if (typeof window !== "undefined") {
+      const parentId =
+        sessionStorage.getItem(`drive_parent_${file.id}`) ||
+        (file.parents && file.parents[0] !== "0AAgz7sm0L0i1Uk9PVA" ? file.parents[0] : null);
+
       if (parentId && parentId !== "root") {
         const storedParent = getStoredBreadcrumbs(parentId);
-        if (storedParent && storedParent.length > 1) return storedParent;
+        if (storedParent && storedParent.length > 0) return storedParent;
       }
     }
+
+    // 3. Check if server provided initialBreadcrumbs
     if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
       if (typeof window !== "undefined") {
         try {
@@ -173,14 +185,36 @@ export function FileDetailView({
       }
       return initialBreadcrumbs;
     }
+
+    // 4. Construct from parentId + stored folder name or fallback
+    const fallbackParentId =
+      (typeof window !== "undefined" ? sessionStorage.getItem(`drive_parent_${file.id}`) : null) ||
+      (file.parents && file.parents[0] !== "0AAgz7sm0L0i1Uk9PVA" ? file.parents[0] : null);
+
+    if (fallbackParentId && fallbackParentId !== "root") {
+      const folderName =
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem(`drive_folder_name_${fallbackParentId}`)
+          : null) || "Folder";
+
+      return [
+        { id: "root", name: "My Drive" },
+        { id: fallbackParentId, name: folderName },
+      ];
+    }
+
     return [{ id: "root", name: "My Drive" }];
   }, [file.id, file.parents, initialBreadcrumbs]);
 
   const parentFolder = parentBreadcrumbs[parentBreadcrumbs.length - 1];
-  const backUrl =
-    parentFolder && parentFolder.id !== "root"
-      ? `/${accountIndex}/${parentFolder.id}?type=folder`
-      : `/${accountIndex}`;
+  const isParentSubfolder =
+    parentFolder &&
+    parentFolder.id !== "root" &&
+    parentFolder.id !== "0AAgz7sm0L0i1Uk9PVA";
+
+  const backUrl = isParentSubfolder
+    ? `/${accountIndex}/${parentFolder.id}?type=folder`
+    : `/${accountIndex}`;
 
   return (
     <div className="w-full space-y-3">
@@ -191,30 +225,39 @@ export function FileDetailView({
           data-testid="file-back-button"
           href={backUrl}
           prefetch={true}
-          onClick={() => {
+          onClick={(e) => {
             if (typeof window !== "undefined") {
               sessionStorage.setItem("drive_navigating_type", "folder");
               sessionStorage.setItem("drive_navigating_id", parentFolder?.id || "root");
-              if (parentFolder && parentFolder.id !== "root") {
+              if (isParentSubfolder) {
                 saveBreadcrumbsForFolder(parentFolder.id, parentBreadcrumbs);
+              }
+
+              const fromFolderUrl = sessionStorage.getItem("drive_from_folder_url");
+              sessionStorage.removeItem("drive_from_folder_url");
+
+              // If internal history exists and user came directly from a folder in this session:
+              if (fromFolderUrl && window.history.length > 1) {
+                e.preventDefault();
+                router.back();
               }
             }
           }}
-          className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer shrink-0"
+          className="flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0"
           title={`Kembali ke ${parentFolder?.name || "My Drive"}`}
         >
           <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Link>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto no-scrollbar min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 overflow-x-auto no-scrollbar min-w-0 flex-1">
           {parentBreadcrumbs.map((crumb, idx) => {
-            const isRoot = crumb.id === "root";
+            const isRoot = crumb.id === "root" || crumb.id === "0AAgz7sm0L0i1Uk9PVA";
             const crumbUrl = isRoot
               ? `/${accountIndex}`
               : `/${accountIndex}/${crumb.id}?type=folder`;
 
             return (
               <React.Fragment key={crumb.id}>
-                {idx > 0 && <span className="shrink-0">/</span>}
+                {idx > 0 && <span className="shrink-0 text-slate-400 dark:text-slate-600">/</span>}
                 <Link
                   href={crumbUrl}
                   prefetch={true}
@@ -222,18 +265,21 @@ export function FileDetailView({
                     if (typeof window !== "undefined") {
                       sessionStorage.setItem("drive_navigating_type", "folder");
                       sessionStorage.setItem("drive_navigating_id", crumb.id);
+                      if (!isRoot) {
+                        saveBreadcrumbsForFolder(crumb.id, parentBreadcrumbs.slice(0, idx + 1));
+                      }
                     }
                   }}
-                  className="hover:text-blue-600 font-medium whitespace-nowrap shrink-0"
+                  className="hover:text-blue-600 dark:hover:text-blue-400 font-medium whitespace-nowrap shrink-0 transition-colors"
                 >
                   {crumb.name}
                 </Link>
               </React.Fragment>
             );
           })}
-          <span className="shrink-0">/</span>
+          <span className="shrink-0 text-slate-400 dark:text-slate-600">/</span>
           <span
-            className="font-semibold text-slate-900 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"
+            className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[130px] xs:max-w-[200px] sm:max-w-md"
             title={file.name}
           >
             {file.name}

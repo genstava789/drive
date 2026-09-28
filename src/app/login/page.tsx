@@ -2,8 +2,19 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, KeyRound, Eye, EyeOff, ArrowRight, Loader2, ShieldCheck, AlertCircle } from "lucide-react";
+import {
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+  ShieldCheck,
+  AlertCircle,
+  Heart,
+} from "lucide-react";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 function LoginForm() {
   const router = useRouter();
@@ -52,19 +63,19 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* Glassmorphism Card */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/85 p-6 sm:p-8 shadow-xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/85">
+      {/* Clean White Card matching Drive Explorer styling */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs dark:border-slate-800/90 dark:bg-slate-900/95 transition-colors">
         {/* Subtle Ambient Glow */}
         <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
 
         {/* Card Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-md shadow-blue-500/25 mb-4">
-            <Lock className="h-6 w-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-xs mb-3.5">
+            <Lock className="h-5 w-5" />
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
             Akses Berkas Drive
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
@@ -102,7 +113,7 @@ function LoginForm() {
                 disabled={isLoading}
                 autoFocus
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-9 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-500/15 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-800 transition duration-150"
+                className="w-full rounded-xl border border-slate-200/90 bg-white py-2.5 pl-9 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-3 focus:ring-blue-500/15 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-blue-400 shadow-2xs transition duration-150"
               />
               <button
                 type="button"
@@ -123,7 +134,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={isLoading || !password.trim()}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-sm py-2.5 px-4 shadow-md shadow-blue-500/20 active:scale-[0.99] transition duration-150 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2.5 px-4 shadow-xs active:scale-[0.99] transition duration-150 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -151,14 +162,17 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gradient-to-b from-slate-50 via-slate-100/70 to-slate-200/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-200 antialiased">
-      {/* Top Simple Header */}
-      <header className="w-full border-b border-slate-200/60 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+    <div className="min-h-screen flex flex-col justify-between bg-[#F6F7F9] dark:bg-[#0B0F17] text-slate-800 dark:text-slate-200 antialiased transition-colors duration-200">
+      {/* Top Navbar Header - Identical to Drive Explorer navbar */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/85 dark:bg-slate-900/85 dark:border-slate-800/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
           <BrandLogo accountIndex={0} />
-          <span className="text-xs font-mono font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-700">
-            Akses Terproteksi
-          </span>
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <span className="hidden sm:inline-flex items-center text-xs font-mono font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+              Akses Terproteksi
+            </span>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -175,9 +189,13 @@ export default function LoginPage() {
         </Suspense>
       </main>
 
-      {/* Clean Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-600 border-t border-slate-200/50 dark:border-slate-800/50">
-        <p>LeviDrive Secure File Gateway &copy; 2026</p>
+      {/* Refined Footer - Identical to Drive Explorer footer */}
+      <footer className="mt-auto border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs py-4.5 text-center">
+        <p className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium tracking-normal">
+          <span>Made with</span>
+          <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500 inline-block animate-pulse shrink-0" />
+          <span>by <strong className="font-semibold text-slate-700 dark:text-slate-200">Levi</strong></span>
+        </p>
       </footer>
     </div>
   );
