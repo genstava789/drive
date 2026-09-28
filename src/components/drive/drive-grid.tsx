@@ -271,7 +271,7 @@ export function DriveGrid({
                           )}
                           <DropdownMenuItem asChild>
                             <a
-                              href={getDownloadUrl(file.id, file.name)}
+                              href={getDownloadUrl(file.id, file.name, accountIndex)}
                               target="_blank"
                               rel="noreferrer"
                               download={file.name}
@@ -283,7 +283,7 @@ export function DriveGrid({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
-                              navigator.clipboard.writeText(getDownloadUrl(file.id, file.name));
+                              navigator.clipboard.writeText(getDownloadUrl(file.id, file.name, accountIndex));
                             }}
                           >
                             <Copy className="h-3.5 w-3.5 mr-2 text-slate-500" />

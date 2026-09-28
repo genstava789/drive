@@ -79,7 +79,7 @@ export function FileDetailView({
       /\.(png|jpg|jpeg|webp|gif|svg|bmp|ico|tiff|heic|avif)$/i.test(file.name));
 
 
-  const downloadUrl = getDownloadUrl(file.id, file.name);
+  const downloadUrl = getDownloadUrl(file.id, file.name, accountIndex);
   const openDriveUrl =
     file.webViewLink || (file.id ? `https://drive.google.com/file/d/${file.id}/view` : undefined);
 

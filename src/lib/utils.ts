@@ -135,17 +135,22 @@ export function getFileCategory(mimeType: string, fileName?: string): string {
   return "file";
 }
 
+import { getEffectiveWorkerUrl, isWorkerStreamingActive } from "./worker-config-client";
+
 /**
- * Generate download URL pointing to Cloudflare Worker (if configured),
+ * Generate download URL pointing to Cloudflare Worker (dynamic from database or env),
  * or fallback to direct Google Drive export download URL.
  */
-export function getDownloadUrl(fileId: string, fileName?: string): string {
-  const workerBaseUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL?.replace(/\/+$/, "");
+export function getDownloadUrl(fileId: string, fileName?: string, accountIndex = 0): string {
+  const workerBaseUrl = getEffectiveWorkerUrl(accountIndex);
 
   if (workerBaseUrl) {
     const params = new URLSearchParams({ id: fileId });
     if (fileName) {
       params.set("name", fileName);
+    }
+    if (accountIndex > 0) {
+      params.set("account", String(accountIndex));
     }
     return `${workerBaseUrl}/download?${params.toString()}`;
   }
@@ -156,12 +161,14 @@ export function getDownloadUrl(fileId: string, fileName?: string): string {
 
 /**
  * Generate direct video stream URL for Vidstack video player.
- * Uses the internal /api/drive/stream proxy supporting HTTP 206 Byte Ranges.
+ * Uses the internal /api/drive/stream proxy supporting HTTP 206 Byte Ranges,
+ * or direct Cloudflare Worker inline stream if configured in settings.
  */
 export function getVideoStreamUrl(fileId: string, accountIndex = 0): string {
-  const workerBaseUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL?.replace(/\/+$/, "");
-  if (workerBaseUrl && process.env.NEXT_PUBLIC_USE_CF_STREAM === "true") {
-    return `${workerBaseUrl}/download?id=${encodeURIComponent(fileId)}&inline=true`;
+  const workerBaseUrl = getEffectiveWorkerUrl(accountIndex);
+  if (workerBaseUrl && isWorkerStreamingActive()) {
+    const accParam = accountIndex > 0 ? `&account=${accountIndex}` : "";
+    return `${workerBaseUrl}/download?id=${encodeURIComponent(fileId)}&inline=true${accParam}`;
   }
   return `/api/drive/stream?id=${encodeURIComponent(fileId)}&accountIndex=${accountIndex}`;
 }

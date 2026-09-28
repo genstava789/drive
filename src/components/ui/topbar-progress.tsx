@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { syncClientWorkerConfig } from "@/lib/worker-config-client";
 
 // Global loading event emitter
 const EVENT_NAME = "levidrive_topbar_loading";
@@ -36,6 +37,7 @@ export function TopbarProgress() {
   const finishTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    syncClientWorkerConfig().catch(() => {});
     const handleLoadingEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ action: "start" | "stop"; count: number }>;
       const { action, count } = customEvent.detail || { action: "stop", count: 0 };

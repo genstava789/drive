@@ -70,11 +70,8 @@ const GDOC_EXPORT_FORMATS = {
   },
 };
 
-// In-memory token cache across requests in the same isolate
-let tokenCache = {
-  accessToken: "",
-  expiresAt: 0,
-};
+// In-memory token cache across requests in the same isolate (keyed by account index)
+const tokenCacheMap = new Map();
 
 /**
  * Fetch new Google Access Token using OAuth Refresh Token
@@ -181,38 +178,75 @@ async function fetchAccessTokenFromServiceAccount(saJson) {
 /**
  * Get active access token (cached or refreshed)
  */
-async function getAccessToken(env, explicitToken) {
+async function getAccessToken(env, explicitToken, accountIndex = 0) {
   if (explicitToken) {
     return explicitToken;
   }
 
+  const accIdx = parseInt(accountIndex, 10) || 0;
+  const cacheKey = `acc_${accIdx}`;
   const now = Date.now();
-  if (tokenCache.accessToken && tokenCache.expiresAt > now + 60000) {
-    return tokenCache.accessToken;
+
+  const cached = tokenCacheMap.get(cacheKey);
+  if (cached && cached.accessToken && cached.expiresAt > now + 60000) {
+    return cached.accessToken;
   }
 
-  const clientId = env?.GOOGLE_CLIENT_ID || authConfig.client_id;
-  const clientSecret = env?.GOOGLE_CLIENT_SECRET || authConfig.client_secret;
-  const refreshToken = env?.REFRESH_TOKEN || authConfig.refresh_token;
-  const saConfig = env?.SERVICE_ACCOUNT_JSON || serviceAccountConfig;
+  // Parse accounts config if provided via ACCOUNTS JSON env
+  let accountsConfig = [];
+  if (env?.ACCOUNTS) {
+    try {
+      accountsConfig = typeof env.ACCOUNTS === "string" ? JSON.parse(env.ACCOUNTS) : env.ACCOUNTS;
+    } catch (_) {}
+  }
+
+  const accountObj = Array.isArray(accountsConfig) && accountsConfig[accIdx] ? accountsConfig[accIdx] : null;
+
+  // Resolve credentials with fallback hierarchy
+  const clientId =
+    accountObj?.client_id ||
+    env?.[`GOOGLE_CLIENT_ID_${accIdx}`] ||
+    env?.GOOGLE_CLIENT_ID ||
+    authConfig.client_id;
+
+  const clientSecret =
+    accountObj?.client_secret ||
+    env?.[`GOOGLE_CLIENT_SECRET_${accIdx}`] ||
+    env?.GOOGLE_CLIENT_SECRET ||
+    authConfig.client_secret;
+
+  const refreshToken =
+    accountObj?.refresh_token ||
+    env?.[`REFRESH_TOKEN_${accIdx}`] ||
+    env?.[`GOOGLE_REFRESH_TOKEN_${accIdx}`] ||
+    (accIdx === 0 ? (env?.REFRESH_TOKEN || authConfig.refresh_token) : null);
+
+  const saConfig =
+    accountObj?.service_account ||
+    env?.[`SERVICE_ACCOUNT_JSON_${accIdx}`] ||
+    (accIdx === 0 ? (env?.SERVICE_ACCOUNT_JSON || serviceAccountConfig) : null);
 
   let result;
   if (saConfig) {
     result = await fetchAccessTokenFromServiceAccount(saConfig);
   } else if (clientId && clientSecret && refreshToken) {
     result = await fetchAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken);
+  } else if (accIdx > 0 && (env?.REFRESH_TOKEN || authConfig.refresh_token)) {
+    // If account-specific token isn't configured, gracefully fallback to primary account
+    const fallbackRefresh = env?.REFRESH_TOKEN || authConfig.refresh_token;
+    result = await fetchAccessTokenFromRefreshToken(clientId, clientSecret, fallbackRefresh);
   } else {
     throw new Error(
-      "Worker belum dikonfigurasi dengan Google credentials. Harap jalankan 'node generate-tokens.js' untuk mendapatkan refresh_token, atau set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, dan REFRESH_TOKEN di environment variables Cloudflare Worker."
+      `Worker belum dikonfigurasi untuk akun #${accIdx}. Tambahkan REFRESH_TOKEN_${accIdx} atau set ACCOUNTS=[...] di environment variables Cloudflare Worker.`
     );
   }
 
-  tokenCache = {
+  tokenCacheMap.set(cacheKey, {
     accessToken: result.accessToken,
     expiresAt: now + (result.expiresIn - 300) * 1000,
-  };
+  });
 
-  return tokenCache.accessToken;
+  return result.accessToken;
 }
 
 /**
@@ -224,8 +258,9 @@ async function handleDownload(request, fileId, env, searchParams) {
   const explicitToken = searchParams.get("token") || request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   const customName = searchParams.get("name");
   const requestedFmt = searchParams.get("fmt")?.toLowerCase();
+  const accountIndex = searchParams.get("account") || searchParams.get("acc") || "0";
 
-  const accessToken = await getAccessToken(env, explicitToken);
+  const accessToken = await getAccessToken(env, explicitToken, accountIndex);
 
   // 1. Fetch file metadata
   const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
@@ -471,6 +506,194 @@ function renderWebGenerator(url) {
 }
 
 /**
+ * Render Status Landing Page with Tailwind CSS
+ */
+function renderStatusPage(url) {
+  const html = `<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeviDrive Downloader • Status Online</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0f9ff', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-[#0b0f17] text-slate-100 min-h-screen flex flex-col justify-between antialiased selection:bg-sky-500 selection:text-white">
+  <!-- Glow background -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-sky-500/10 blur-[130px] rounded-full"></div>
+    <div class="absolute top-1/2 -right-40 w-[500px] h-[350px] bg-blue-600/10 blur-[140px] rounded-full"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="border-b border-white/5 bg-[#0f1523]/70 backdrop-blur-md px-6 py-4">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-white tracking-tight">LeviDrive Worker</h1>
+          <p class="text-xs text-slate-400">Direct Download & High-Speed Stream Engine</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        Status: Online
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="max-w-4xl mx-auto px-6 py-12 flex-1 w-full">
+    <!-- Hero Box -->
+    <div class="rounded-2xl border border-white/10 bg-[#121927]/90 p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden mb-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-3">
+            Multi-Account Engine v2.0
+          </div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Direct Download & Streaming Service</h2>
+          <p class="text-slate-400 text-sm mt-2 max-w-xl leading-relaxed">
+            Worker ini aktif melayani download berkecepatan tinggi dan video streaming dari Google Drive tanpa batasan kuota download harian ataupun limit browser.
+          </p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <a href="${url.origin}/generate" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold transition-all shadow-lg shadow-sky-500/25">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            OAuth Generator
+          </a>
+          <a href="${url.origin}/status" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-semibold transition-all">
+            JSON Status
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Tester -->
+      <div class="mt-8 pt-6 border-t border-white/5">
+        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Uji Unduhan Langsung File Drive</label>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div class="md:col-span-6">
+            <input id="testFileId" type="text" placeholder="Masukkan Google Drive File ID..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-sky-500 transition-all font-mono" />
+          </div>
+          <div class="md:col-span-3">
+            <select id="testAccount" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white text-xs focus:outline-none focus:border-sky-500 transition-all">
+              <option value="0">Akun #0 (Utama)</option>
+              <option value="1">Akun #1</option>
+              <option value="2">Akun #2</option>
+              <option value="3">Akun #3</option>
+            </select>
+          </div>
+          <div class="md:col-span-3 flex gap-2">
+            <button onclick="testAction(false)" class="flex-1 px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all border border-white/10">
+              Download
+            </button>
+            <button onclick="testAction(true)" class="flex-1 px-3 py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-semibold transition-all">
+              Stream
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Docs -->
+    <div class="rounded-2xl border border-white/10 bg-[#121927]/60 p-6 shadow-xl backdrop-blur-xl">
+      <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+        <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        Parameter URL Direct Download
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left text-slate-300">
+          <thead class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/5">
+            <tr>
+              <th class="py-2.5 pr-4 font-semibold">Parameter</th>
+              <th class="py-2.5 pr-4 font-semibold">Tipe</th>
+              <th class="py-2.5 font-semibold">Deskripsi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y border-white/5 divide-white/5 font-mono">
+            <tr>
+              <td class="py-2.5 pr-4 text-sky-400 font-bold">id</td>
+              <td class="py-2.5 pr-4 text-slate-400">string (wajib)</td>
+              <td class="py-2.5 text-slate-300 font-sans">Google Drive File ID</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 pr-4 text-sky-400 font-bold">account</td>
+              <td class="py-2.5 pr-4 text-slate-400">number (opsional)</td>
+              <td class="py-2.5 text-slate-300 font-sans">Index akun multi-login (0, 1, 2, ...). Default: 0</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 pr-4 text-sky-400 font-bold">inline</td>
+              <td class="py-2.5 pr-4 text-slate-400">boolean</td>
+              <td class="py-2.5 text-slate-300 font-sans">Set <code>true</code> untuk video / audio streaming & inline preview</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 pr-4 text-sky-400 font-bold">name</td>
+              <td class="py-2.5 pr-4 text-slate-400">string</td>
+              <td class="py-2.5 text-slate-300 font-sans">Nama kustom saat berkas diunduh</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-slate-900/90 border border-white/5 text-[11px] text-slate-400">
+        <span class="text-sky-400 font-bold">Contoh URL:</span>
+        <code class="text-white block mt-1 select-all">${url.origin}/download?id=FILE_ID&account=0&inline=true</code>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/5 py-6 px-6 text-center text-xs text-slate-500">
+    LeviDrive Worker Downloader • Multi-Account Direct Engine
+  </footer>
+
+  <script>
+    function testAction(inline) {
+      const id = document.getElementById('testFileId').value.trim();
+      const acc = document.getElementById('testAccount').value;
+      if (!id) return alert('Silakan masukkan Google Drive File ID terlebih dahulu.');
+      let target = '${url.origin}/download?id=' + encodeURIComponent(id) + '&account=' + encodeURIComponent(acc);
+      if (inline) target += '&inline=true';
+      window.open(target, '_blank');
+    }
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=UTF-8" },
+  });
+}
+
+/**
  * Main Cloudflare Worker Request Handler
  */
 async function handleRequest(request, env) {
@@ -493,6 +716,22 @@ async function handleRequest(request, env) {
   // Web Generator Route
   if (path === "/generate" || path === "/oauth") {
     return renderWebGenerator(url);
+  }
+
+  // Explicit health / status endpoint
+  if (path === "/status" || path === "/health") {
+    return new Response(
+      JSON.stringify({
+        service: "LeviDrive Cloudflare Worker Downloader",
+        status: "online",
+        multi_account: true,
+        generator: `${url.origin}/generate`,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=UTF-8", "Access-Control-Allow-Origin": "*" },
+      }
+    );
   }
 
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -536,15 +775,24 @@ async function handleRequest(request, env) {
   }
 
   // Home / Health / Status Info
+  const acceptHeader = request.headers.get("Accept") || "";
+  const isHtmlRequest = acceptHeader.includes("text/html") && !url.searchParams.has("json");
+
+  if (isHtmlRequest) {
+    return renderStatusPage(url);
+  }
+
   return new Response(
     JSON.stringify({
       service: "LeviDrive Cloudflare Worker Downloader",
       status: "online",
+      multi_account: true,
       generator: `${url.origin}/generate`,
       documentation: {
-        usage: `${url.origin}/download?id=GOOGLE_DRIVE_FILE_ID`,
+        usage: `${url.origin}/download?id=GOOGLE_DRIVE_FILE_ID&account=0`,
         parameters: {
           id: "Google Drive file ID (required)",
+          account: "Account index for multi-account setup (optional, e.g. 0, 1, 2)",
           name: "Custom downloaded filename (optional)",
           inline: "Set 'true' for inline streaming / preview (optional)",
           fmt: "Export format for Docs/Sheets/Slides: pdf, docx, xlsx, pptx, txt, csv (optional)",
