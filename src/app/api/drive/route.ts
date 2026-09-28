@@ -96,12 +96,13 @@ export async function GET(request: NextRequest) {
 
     const query = searchParams.get("query") || searchParams.get("q") || "";
 
-    // Otherwise list folder items
+    // Otherwise list folder items: bypass stale caches when manual refresh or autoSync is requested
+    const shouldFetchFresh = forceRefresh || autoSync;
     const driveData = await getDriveFiles(
       accessToken ?? undefined,
       folderId,
       accountIndex,
-      forceRefresh,
+      shouldFetchFresh,
       query
     );
 

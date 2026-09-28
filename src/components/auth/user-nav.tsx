@@ -75,7 +75,26 @@ export function UserNav({
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const stored = getCachedLocalStorageAccounts();
+    if (stored && stored.length > 0) {
+      setServerAccounts((prev) => {
+        if (prev.length === 0) {
+          return stored.map((acc) => ({
+            ...acc,
+            email: userRole === "admin" ? acc.email : "Akun Terverifikasi",
+          }));
+        }
+        return prev;
+      });
+      setIsAccountsSyncing(false);
+    }
+
+    // Safety timeout: never allow syncing to hang indefinitely
+    const timer = setTimeout(() => {
+      setIsAccountsSyncing(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [userRole]);
 
   // Persist accounts immediately to localStorage so reloads never flicker
   useEffect(() => {
@@ -227,18 +246,23 @@ export function UserNav({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1.5 rounded-full p-1 pl-1.5 pr-2.5 border border-slate-200 bg-white hover:bg-slate-50 shadow-2xs transition outline-none cursor-pointer">
-                {activeAccount?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={activeAccount.image}
-                    alt={activeAccount.name}
-                    className="h-6 w-6 rounded-full border border-slate-200 object-cover"
-                  />
-                ) : (
+                <div className="relative flex h-6 w-6 items-center justify-center shrink-0">
+                  {activeAccount?.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={activeAccount.image}
+                      alt={activeAccount.name}
+                      referrerPolicy="no-referrer"
+                      className="absolute inset-0 h-6 w-6 rounded-full border border-slate-200 object-cover z-10"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  )}
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
-                    {activeAccount?.name?.charAt(0) || "L"}
+                    {activeAccount?.name?.charAt(0)?.toUpperCase() || "G"}
                   </div>
-                )}
+                </div>
                 <span className="text-xs font-semibold text-slate-800 max-w-[100px] truncate hidden sm:inline-block">
                   {activeAccount?.name}
                 </span>
@@ -274,18 +298,23 @@ export function UserNav({
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        {acc.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={acc.image}
-                            alt={acc.name}
-                            className="h-7 w-7 rounded-full border border-slate-200 object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white shrink-0">
-                            {acc.name.charAt(0)}
+                        <div className="relative flex h-7 w-7 items-center justify-center shrink-0">
+                          {acc.image && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={acc.image}
+                              alt={acc.name}
+                              referrerPolicy="no-referrer"
+                              className="absolute inset-0 h-7 w-7 rounded-full border border-slate-200 object-cover z-10"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          )}
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white">
+                            {acc.name?.charAt(0)?.toUpperCase() || "G"}
                           </div>
-                        )}
+                        </div>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-slate-900 truncate">
                             {acc.name}
@@ -370,7 +399,7 @@ export function UserNav({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : !mounted || isAccountsSyncing || status === "loading" || (accounts.length === 0 && hasCachedGoogleAccounts()) ? (
+        ) : !mounted || (isAccountsSyncing && status === "loading") ? (
           <div className="h-8 w-8 rounded-full bg-slate-200/80 animate-pulse" />
         ) : userRole === "admin" ? (
           /* Confirmed no active accounts logged in - Only Admin can login Google */
@@ -402,12 +431,12 @@ export function UserNav({
             </Button>
           </div>
         ) : (
-          <button
-            onClick={handleGateLogout}
-            className="text-xs text-slate-500 hover:text-rose-600 font-medium px-2 py-1 transition cursor-pointer"
-          >
-            Keluar
-          </button>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200/80 bg-white/90 text-xs text-slate-600 font-medium shadow-2xs">
+            <div className="h-5 w-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-[10px]">
+              G
+            </div>
+            <span className="hidden sm:inline-block">Akses Drive</span>
+          </div>
         )}
       </div>
 

@@ -44,7 +44,7 @@ export default async function AccountLayout({
     if (!serverState?.loggedOut) {
       if (Array.isArray(serverAccounts) && serverAccounts.length > 0) {
         initialAccounts = serverAccounts
-          .filter((acc) => acc.email && acc.email.includes("@"))
+          .filter((acc) => acc && (acc.email || acc.name))
           .map((acc, index) => ({
             id: acc.id || `account-${index}`,
             name: acc.name || "Akun Google",

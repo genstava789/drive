@@ -108,16 +108,24 @@ export function DriveExplorer({
       const { isManualRefresh = false, isBackground = false } = options;
       const activeCacheKey = `${accountIndex}_${folderId}`;
       const cached = clientFolderCache.get(activeCacheKey);
+      const showTopbar = isBackground || (Boolean(cached) && !isManualRefresh);
 
-      // Instant display: if cached files exist and not manual refresh, show immediately
-      if (cached && !isManualRefresh && !isBackground) {
-        setFiles(cached.files);
-        setIsLoading(false);
-      } else if (!cached && !isBackground) {
+      if (isManualRefresh) {
+        // Manual refresh: User explicitly requested reload -> Show table skeleton, NO topbar loading
+        clientFolderCache.delete(activeCacheKey);
+        setIsLoading(true);
+      } else if (showTopbar) {
+        // Background sync / sorting revalidation: Keep table visible and responsive, show sleek topbar
+        if (cached) {
+          setFiles(cached.files);
+          setIsLoading(false);
+        }
+        startTopbarLoading();
+      } else {
+        // Initial load without cache -> Show table skeleton, NO topbar loading
         setIsLoading(true);
       }
 
-      startTopbarLoading();
       setError(null);
 
       try {
@@ -236,8 +244,12 @@ export function DriveExplorer({
           if (!cached) setFiles([]);
         }
       } finally {
-        setIsLoading(false);
-        stopTopbarLoading();
+        if (!isBackground) {
+          setIsLoading(false);
+        }
+        if (showTopbar) {
+          stopTopbarLoading();
+        }
       }
     },
     [accountIndex, initialFolderName, session]
@@ -449,7 +461,6 @@ export function DriveExplorer({
         );
       }
 
-      startTopbarLoading();
       React.startTransition(() => {
         router.push(`/${accountIndex}/file/${file.id}`);
       });
@@ -706,6 +717,7 @@ export function DriveExplorer({
             onFolderClick={handleFolderClick}
             onFileClick={handleFileClick}
             onPrefetchFolder={prefetchFolder}
+            onSortChange={() => fetchFiles(currentFolderId, { isBackground: true })}
           />
         ) : (
           /* Visual Grid View with Instant Folder Navigation */

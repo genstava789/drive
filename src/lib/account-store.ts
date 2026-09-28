@@ -129,17 +129,24 @@ export function filterAvailableAccounts(
   rawAccounts: GoogleAccount[]
 ): GoogleAccount[] {
   const removed = getStoredRemovedAccountIds();
-  return rawAccounts.filter(
-    (a) =>
-      a &&
-      typeof a.email === "string" &&
-      a.email.trim() !== "" &&
-      (a.email.includes("@") || a.email === "Akun Terverifikasi" || a.name) &&
-      a.email !== "admin@levidrive.com" &&
-      a.email !== "levi.developer@gmail.com" &&
-      a.email !== "cloudvault.demo@gmail.com" &&
-      !removed.includes(a.id || a.email)
-  );
+  return rawAccounts.filter((a) => {
+    if (!a) return false;
+    const email = typeof a.email === "string" ? a.email.trim() : "";
+    const name = typeof a.name === "string" ? a.name.trim() : "";
+    if (!email && !name) return false;
+    if (
+      email === "admin@levidrive.com" ||
+      email === "levi.developer@gmail.com" ||
+      email === "cloudvault.demo@gmail.com"
+    ) {
+      return false;
+    }
+    const id = a.id || email || name;
+    if (removed.includes(id) || (email && removed.includes(email))) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function getActiveAccounts(
@@ -158,17 +165,22 @@ export function getActiveAccounts(
     );
   } else if (session?.accounts && session.accounts.length > 0) {
     rawAccounts = session.accounts.filter(
-      (a: any) => a && a.email && a.email.includes("@")
+      (a: any) => a && ((a.email && a.email.includes("@")) || a.name)
     );
-  } else if (session?.user && session.user.email) {
+  } else if (session?.user && (session.user.email || session.user.name)) {
     rawAccounts = [
       {
         id: session.user.id || "primary",
         name: session.user.name || "Akun Google",
-        email: session.user.email || "",
+        email: session.user.email || "Akun Terverifikasi",
         image: session.user.image || undefined,
       },
     ];
+  } else if (typeof window !== "undefined") {
+    const fromStorage = getCachedLocalStorageAccounts();
+    if (fromStorage && fromStorage.length > 0) {
+      rawAccounts = [...fromStorage];
+    }
   } else {
     rawAccounts = [];
   }
@@ -178,9 +190,8 @@ export function getActiveAccounts(
     for (const acc of session.accounts) {
       if (
         acc &&
-        acc.email &&
-        acc.email.includes("@") &&
-        !rawAccounts.some((a) => a.email === acc.email || (acc.id && a.id === acc.id))
+        ((acc.email && acc.email.includes("@")) || acc.name) &&
+        !rawAccounts.some((a) => (acc.email && a.email === acc.email) || (acc.id && a.id === acc.id))
       ) {
         rawAccounts.push(acc);
       }

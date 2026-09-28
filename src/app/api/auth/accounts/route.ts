@@ -23,7 +23,7 @@ export async function GET() {
 
     // Map to client-safe representation without exposing sensitive tokens, filtering dummy accounts
     const clientSafeAccounts = serverAccounts
-      .filter((acc) => acc.email && acc.email.includes("@"))
+      .filter((acc) => acc && (acc.email || acc.name))
       .map((acc, index) => ({
         id: acc.id || `account-${index}`,
         name: acc.name || "Akun Google",

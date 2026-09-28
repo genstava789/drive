@@ -67,6 +67,7 @@ interface DriveTableProps {
   onFolderClick?: (folder: { id: string; name: string }) => void;
   onFileClick?: (file: DriveFile) => void;
   onPrefetchFolder?: (folderId: string) => void;
+  onSortChange?: () => void;
 }
 
 export function DriveTable({
@@ -79,6 +80,7 @@ export function DriveTable({
   onFolderClick,
   onFileClick,
   onPrefetchFolder,
+  onSortChange,
 }: DriveTableProps) {
   const router = useRouter();
 
@@ -138,12 +140,14 @@ export function DriveTable({
       // Keep cycle strictly on the same column (toggle descending <-> ascending)
       return [{ id: columnId, desc: !current.desc }];
     });
+    onSortChange?.();
   };
 
   const currentSort = sorting[0] || { id: "name", desc: false };
 
   const setDirectSort = (columnId: string, desc: boolean) => {
     setSorting([{ id: columnId, desc }]);
+    onSortChange?.();
   };
 
   const columns = useMemo<ColumnDef<DriveFile>[]>(
@@ -496,7 +500,10 @@ export function DriveTable({
       globalFilter: searchQuery,
       pagination,
     },
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      setSorting(updater);
+      onSortChange?.();
+    },
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
