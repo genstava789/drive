@@ -153,8 +153,56 @@ export function FileDetailView({
   ];
 
   const parentBreadcrumbs = React.useMemo(() => {
-    // 1. Check if full breadcrumbs were stored in sessionStorage for this file
+    // 1. Authoritative: If server provided initialBreadcrumbs directly from Google Drive API hierarchy
+    if (initialBreadcrumbs && initialBreadcrumbs.length > 1) {
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(`drive_breadcrumbs_${file.id}`, JSON.stringify(initialBreadcrumbs));
+          const actualParent = initialBreadcrumbs[initialBreadcrumbs.length - 1];
+          if (actualParent && actualParent.id !== "root") {
+            sessionStorage.setItem(`drive_parent_${file.id}`, actualParent.id);
+            sessionStorage.setItem(`drive_folder_name_${actualParent.id}`, actualParent.name);
+          }
+        } catch (_) {}
+      }
+      return initialBreadcrumbs;
+    }
+
+    // 2. Canonical parent from Google Drive file metadata (file.parents[0])
+    const canonicalParentId =
+      file.parents && file.parents[0] && file.parents[0] !== "0AAgz7sm0L0i1Uk9PVA" && file.parents[0] !== "root"
+        ? file.parents[0]
+        : null;
+
+    if (canonicalParentId) {
+      const storedParent = typeof window !== "undefined" ? getStoredBreadcrumbs(canonicalParentId) : null;
+      if (storedParent && storedParent.length > 1) {
+        return storedParent;
+      }
+      const folderName =
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem(`drive_folder_name_${canonicalParentId}`)
+          : null) || "Folder";
+
+      return [
+        { id: "root", name: "My Drive" },
+        { id: canonicalParentId, name: folderName },
+      ];
+    }
+
+    // 3. Fallback to initialBreadcrumbs if single root
+    if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
+      return initialBreadcrumbs;
+    }
+
+    // 4. Client session storage fallback
     if (typeof window !== "undefined") {
+      const storedParentId = sessionStorage.getItem(`drive_parent_${file.id}`);
+      if (storedParentId && storedParentId !== "root" && storedParentId !== "0AAgz7sm0L0i1Uk9PVA") {
+        const storedParent = getStoredBreadcrumbs(storedParentId);
+        if (storedParent && storedParent.length > 0) return storedParent;
+      }
+
       const stored = sessionStorage.getItem(`drive_breadcrumbs_${file.id}`);
       if (stored) {
         try {
@@ -162,45 +210,6 @@ export function FileDetailView({
           if (Array.isArray(parsed) && parsed.length > 1) return parsed;
         } catch (_) {}
       }
-    }
-
-    // 2. Check if parentId is known and has stored breadcrumbs
-    if (typeof window !== "undefined") {
-      const parentId =
-        sessionStorage.getItem(`drive_parent_${file.id}`) ||
-        (file.parents && file.parents[0] !== "0AAgz7sm0L0i1Uk9PVA" ? file.parents[0] : null);
-
-      if (parentId && parentId !== "root") {
-        const storedParent = getStoredBreadcrumbs(parentId);
-        if (storedParent && storedParent.length > 0) return storedParent;
-      }
-    }
-
-    // 3. Check if server provided initialBreadcrumbs
-    if (initialBreadcrumbs && initialBreadcrumbs.length > 0) {
-      if (typeof window !== "undefined") {
-        try {
-          sessionStorage.setItem(`drive_breadcrumbs_${file.id}`, JSON.stringify(initialBreadcrumbs));
-        } catch (_) {}
-      }
-      return initialBreadcrumbs;
-    }
-
-    // 4. Construct from parentId + stored folder name or fallback
-    const fallbackParentId =
-      (typeof window !== "undefined" ? sessionStorage.getItem(`drive_parent_${file.id}`) : null) ||
-      (file.parents && file.parents[0] !== "0AAgz7sm0L0i1Uk9PVA" ? file.parents[0] : null);
-
-    if (fallbackParentId && fallbackParentId !== "root") {
-      const folderName =
-        (typeof window !== "undefined"
-          ? sessionStorage.getItem(`drive_folder_name_${fallbackParentId}`)
-          : null) || "Folder";
-
-      return [
-        { id: "root", name: "My Drive" },
-        { id: fallbackParentId, name: folderName },
-      ];
     }
 
     return [{ id: "root", name: "My Drive" }];
@@ -225,21 +234,12 @@ export function FileDetailView({
           data-testid="file-back-button"
           href={backUrl}
           prefetch={true}
-          onClick={(e) => {
+          onClick={() => {
             if (typeof window !== "undefined") {
               sessionStorage.setItem("drive_navigating_type", "folder");
               sessionStorage.setItem("drive_navigating_id", parentFolder?.id || "root");
               if (isParentSubfolder) {
                 saveBreadcrumbsForFolder(parentFolder.id, parentBreadcrumbs);
-              }
-
-              const fromFolderUrl = sessionStorage.getItem("drive_from_folder_url");
-              sessionStorage.removeItem("drive_from_folder_url");
-
-              // If internal history exists and user came directly from a folder in this session:
-              if (fromFolderUrl && window.history.length > 1) {
-                e.preventDefault();
-                router.back();
               }
             }
           }}

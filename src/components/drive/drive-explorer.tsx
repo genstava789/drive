@@ -627,6 +627,9 @@ export function DriveExplorer({
       if (accIdx !== accountIndex) {
         return;
       }
+      if (locParts[1] === "file") {
+        return;
+      }
       const targetFolderId = locParts[1] ? decodeURIComponent(locParts[1]) : "root";
       const cachedType = sessionStorage.getItem(`drive_type_${targetFolderId}`);
       if (cachedType === "file") {

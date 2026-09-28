@@ -40,15 +40,18 @@ export default async function FilePage({ params }: FilePageProps) {
     );
   }
 
-  let initialBreadcrumbs: BreadcrumbItem[] | undefined;
+  let initialBreadcrumbs: BreadcrumbItem[] = [{ id: "root", name: "My Drive" }];
   const parentId = item.parents?.[0];
-  if (parentId && parentId !== "root") {
+  if (parentId && parentId !== "root" && parentId !== "0AAgz7sm0L0i1Uk9PVA") {
     try {
-      initialBreadcrumbs = await getFolderBreadcrumbs(
+      const resolved = await getFolderBreadcrumbs(
         parentId,
         accessToken,
         accountIndex
       );
+      if (resolved && resolved.length > 0) {
+        initialBreadcrumbs = resolved;
+      }
     } catch (_) {}
   }
 
