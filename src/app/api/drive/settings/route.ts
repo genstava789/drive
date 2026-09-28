@@ -176,35 +176,36 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const responsePayload = {
-      isAuthenticated: true,
-      accountIndex,
-      account: {
-        id: account.id || account.email,
-        name: userInfo.displayName,
-        email: userInfo.emailAddress,
-        image: userInfo.photoLink,
-      },
-      credentials: {
-        clientId: creds.clientId,
-        clientSecret: creds.clientSecret,
-        refreshToken: effectiveRefreshToken,
-        source: creds.source,
-      },
-      storage: storageQuota,
-      stats: {
-        totalFiles,
-        totalFolders,
-        totalTrash,
-      },
-      gatePasswords: {
-        adminPassword: (await getSitePasswordsConfig()).adminPassword,
-        userPassword: (await getSitePasswordsConfig()).userPassword,
-        telegramLink:
-          (await getSitePasswordsConfig()).telegramLink || "https://t.me/synerize",
-      },
-      timestamp: Date.now(),
-    };
+      const liveGateConfig = await getSitePasswordsConfig(true);
+
+      const responsePayload = {
+        isAuthenticated: true,
+        accountIndex,
+        account: {
+          id: account.id || account.email,
+          name: userInfo.displayName,
+          email: userInfo.emailAddress,
+          image: userInfo.photoLink,
+        },
+        credentials: {
+          clientId: creds.clientId,
+          clientSecret: creds.clientSecret,
+          refreshToken: effectiveRefreshToken,
+          source: creds.source,
+        },
+        storage: storageQuota,
+        stats: {
+          totalFiles,
+          totalFolders,
+          totalTrash,
+        },
+        gatePasswords: {
+          adminPassword: liveGateConfig.adminPassword,
+          userPassword: liveGateConfig.userPassword,
+          telegramLink: liveGateConfig.telegramLink || "https://t.me/synerize",
+        },
+        timestamp: Date.now(),
+      };
 
     settingsCache.set(accountIndex, {
       data: responsePayload,

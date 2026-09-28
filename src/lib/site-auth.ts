@@ -290,43 +290,26 @@ async function fetchPasswordsFromSupabase(): Promise<SitePasswordsConfig | null>
   return null;
 }
 
-async function savePasswordsToSupabase(config: SitePasswordsConfig): Promise<void> {
+async function savePasswordsToSupabase(config: SitePasswordsConfig): Promise<boolean> {
   const supabase = getSupabaseClient();
-  if (!supabase) return;
+  if (!supabase) return false;
   try {
-    await supabase.from("drive_sync_state").upsert({
-      account_id: "system_gate_passwords",
-      start_page_token: JSON.stringify(config),
-      last_synced_at: new Date().toISOString(),
-    });
+    const { error } = await supabase.from("drive_sync_state").upsert(
+      {
+        account_id: "system_gate_passwords",
+        start_page_token: JSON.stringify(config),
+        last_synced_at: new Date().toISOString(),
+      },
+      { onConflict: "account_id" }
+    );
+    if (error) {
+      console.error("[SiteAuth] Error saving passwords to Supabase drive_sync_state:", error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.warn("[SiteAuth] Error saving passwords to Supabase:", err);
-  }
-
-  // Also update site_passwords table if it exists in Supabase
-  try {
-    const [adminHash, userHash] = await Promise.all([
-      hashPassword(config.adminPassword),
-      hashPassword(config.userPassword),
-    ]);
-    await supabase.from("site_passwords").upsert([
-      {
-        role: "admin",
-        password_hash: adminHash.hash,
-        salt: adminHash.salt,
-        description: "Owner / Administrator Access",
-        updated_at: new Date().toISOString(),
-      },
-      {
-        role: "user",
-        password_hash: userHash.hash,
-        salt: userHash.salt,
-        description: "Pengguna Biasa / Guest Access",
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-  } catch (_) {
-    // Non-fatal if site_passwords table doesn't exist
+    return false;
   }
 }
 
@@ -411,15 +394,22 @@ export async function updateSitePasswordsConfig(
     updatedAt: Date.now(),
   };
 
-  memoryPasswordsConfig = finalConfig;
-  memoryPasswordsLoadedAt = Date.now();
+  // 1. Persist directly to Supabase with verification
+  const isSavedToSupabase = await savePasswordsToSupabase(finalConfig);
+  if (!isSavedToSupabase) {
+    throw new Error(
+      "Gagal menyimpan konfigurasi ke Supabase database. Periksa koneksi internet atau kredensial Supabase."
+    );
+  }
 
-  // Persist across all tiers asynchronously
+  // 2. Also persist to secondary tiers
   await Promise.allSettled([
-    savePasswordsToSupabase(finalConfig),
     savePasswordsToKv(finalConfig),
     saveLocalFilePasswords(finalConfig),
   ]);
+
+  memoryPasswordsConfig = finalConfig;
+  memoryPasswordsLoadedAt = Date.now();
 
   return finalConfig;
 }

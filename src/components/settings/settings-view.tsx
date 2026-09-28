@@ -219,12 +219,6 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     }
   };
 
-  const handleResetToDefault = () => {
-    setAdminPasswordInput("admin-drive");
-    setUserPasswordInput("drive-levi");
-    setTelegramLinkInput("https://t.me/synerize");
-  };
-
   const isPasswordsModified =
     adminPasswordInput.trim() !== originalAdminPassword ||
     userPasswordInput.trim() !== originalUserPassword ||
@@ -491,46 +485,14 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
 
       {/* Row 2: Keamanan & Password Gerbang Akses (/login) Card */}
       <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shadow-2xs">
-              <ShieldCheck className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">
-                  Gerbang Akses (/login) &amp; Tautan Sosial
-                </h2>
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Real-Time Sync
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500">
-                Kelola password login (Admin &amp; Tamu) serta tautan social icon Telegram yang tampil di halaman login.
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5 pb-3.5 border-b border-slate-100">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shadow-2xs">
+            <ShieldCheck className="h-4 w-4" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={handleSavePasswords}
-              disabled={isSavingPasswords || !isPasswordsModified}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5 rounded-lg shadow-2xs cursor-pointer disabled:opacity-50"
-            >
-              {isSavingPasswords ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Menyimpan...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" />
-                  <span>Simpan Perubahan</span>
-                </>
-              )}
-            </Button>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Akses Login
+            </h2>
           </div>
         </div>
 
@@ -661,24 +623,16 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
 
           {/* Card 3: Tautan Social Icon Telegram (/login) */}
           <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#229ED9]/10">
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-[#229ED9]">
-                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                  </svg>
-                </div>
-                <label className="text-xs font-bold text-slate-800">
-                  Tautan Social Icon Telegram (/login)
-                </label>
+            <div className="flex items-center gap-2">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#229ED9]/10">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-[#229ED9]">
+                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                </svg>
               </div>
-              <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-mono">
-                Real-Time Redirect
-              </Badge>
+              <label className="text-xs font-bold text-slate-800">
+                Tautan Social Icon Telegram (/login)
+              </label>
             </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Tautan yang dibuka saat pengunjung menekan social icon Telegram di kartu login (<span className="font-mono text-slate-700">/login</span>). Mendukung URL lengkap (<span className="font-mono text-slate-700">https://t.me/synerize</span>), domain (<span className="font-mono text-slate-700">t.me/synerize</span>), atau username (<span className="font-mono text-slate-700">@synerize</span>).
-            </p>
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <input
@@ -725,25 +679,11 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
           <div className="flex items-center gap-2 text-slate-500 text-[11px]">
             <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <span>
-              Perubahan langsung tersimpan ke Supabase &amp; aktif pada rute <span className="font-mono text-slate-700 font-semibold">/login</span> secara seketika.
+              Perubahan tersimpan langsung ke database Supabase &amp; aktif pada rute <span className="font-mono text-slate-700 font-semibold">/login</span>.
             </span>
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetToDefault}
-              disabled={
-                isSavingPasswords ||
-                (adminPasswordInput === "admin-drive" &&
-                  userPasswordInput === "drive-levi" &&
-                  telegramLinkInput === "https://t.me/synerize")
-              }
-              className="h-7.5 px-2.5 text-xs text-slate-600 border-slate-200 hover:bg-slate-50 cursor-pointer"
-            >
-              Reset Default
-            </Button>
             <Button
               size="sm"
               onClick={handleSavePasswords}

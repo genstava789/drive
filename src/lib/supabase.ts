@@ -25,6 +25,14 @@ export function getSupabaseClient(): SupabaseClient | null {
         persistSession: false,
         autoRefreshToken: false,
       },
+      global: {
+        fetch: (input, init) => {
+          return fetch(input, {
+            ...init,
+            cache: "no-store",
+          });
+        },
+      },
     });
     return supabaseInstance;
   } catch (err) {
