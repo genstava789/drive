@@ -200,6 +200,8 @@ export async function GET(request: NextRequest) {
       gatePasswords: {
         adminPassword: (await getSitePasswordsConfig()).adminPassword,
         userPassword: (await getSitePasswordsConfig()).userPassword,
+        telegramLink:
+          (await getSitePasswordsConfig()).telegramLink || "https://t.me/synerize",
       },
       timestamp: Date.now(),
     };

@@ -62,6 +62,7 @@ interface SettingsData {
   gatePasswords?: {
     adminPassword: string;
     userPassword: string;
+    telegramLink?: string;
   };
 }
 
@@ -82,11 +83,13 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
   // Copy success states
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Gate passwords states (Admin & Regular User for /login)
+  // Gate passwords & social link states (Admin & Regular User for /login)
   const [adminPasswordInput, setAdminPasswordInput] = useState<string>("admin-drive");
   const [userPasswordInput, setUserPasswordInput] = useState<string>("drive-levi");
+  const [telegramLinkInput, setTelegramLinkInput] = useState<string>("https://t.me/synerize");
   const [originalAdminPassword, setOriginalAdminPassword] = useState<string>("admin-drive");
   const [originalUserPassword, setOriginalUserPassword] = useState<string>("drive-levi");
+  const [originalTelegramLink, setOriginalTelegramLink] = useState<string>("https://t.me/synerize");
   const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
   const [showUserPassword, setShowUserPassword] = useState<boolean>(false);
   const [isSavingPasswords, setIsSavingPasswords] = useState<boolean>(false);
@@ -116,6 +119,10 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
             setUserPasswordInput(json.gatePasswords.userPassword);
             setOriginalAdminPassword(json.gatePasswords.adminPassword);
             setOriginalUserPassword(json.gatePasswords.userPassword);
+            if (json.gatePasswords.telegramLink) {
+              setTelegramLinkInput(json.gatePasswords.telegramLink);
+              setOriginalTelegramLink(json.gatePasswords.telegramLink);
+            }
           }
         }
       } catch (err: any) {
@@ -137,6 +144,10 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
           setUserPasswordInput(json.userPassword);
           setOriginalAdminPassword(json.adminPassword);
           setOriginalUserPassword(json.userPassword);
+          if (json.telegramLink) {
+            setTelegramLinkInput(json.telegramLink);
+            setOriginalTelegramLink(json.telegramLink);
+          }
         }
       }
     } catch (_) {}
@@ -151,6 +162,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     if (e) e.preventDefault();
     const trimmedAdmin = adminPasswordInput.trim();
     const trimmedUser = userPasswordInput.trim();
+    const trimmedTelegram = telegramLinkInput.trim();
 
     if (!trimmedAdmin || trimmedAdmin.length < 4) {
       setPasswordSaveError("Password Admin minimal 4 karakter.");
@@ -158,6 +170,10 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     }
     if (!trimmedUser || trimmedUser.length < 4) {
       setPasswordSaveError("Password Pengguna Biasa minimal 4 karakter.");
+      return;
+    }
+    if (!trimmedTelegram) {
+      setPasswordSaveError("Link Telegram tidak boleh kosong.");
       return;
     }
 
@@ -172,27 +188,32 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
         body: JSON.stringify({
           adminPassword: trimmedAdmin,
           userPassword: trimmedUser,
+          telegramLink: trimmedTelegram,
         }),
       });
 
       const resJson = await res.json();
       if (!res.ok || !resJson.success) {
-        throw new Error(resJson.error || "Gagal memperbarui password");
+        throw new Error(resJson.error || "Gagal memperbarui pengaturan");
       }
 
       setAdminPasswordInput(resJson.adminPassword);
       setUserPasswordInput(resJson.userPassword);
       setOriginalAdminPassword(resJson.adminPassword);
       setOriginalUserPassword(resJson.userPassword);
+      if (resJson.telegramLink) {
+        setTelegramLinkInput(resJson.telegramLink);
+        setOriginalTelegramLink(resJson.telegramLink);
+      }
 
       setPasswordSaveSuccess(
-        "Password berhasil diperbarui secara real-time! Perubahan langsung aktif di rute /login."
+        "Password & Tautan Telegram berhasil diperbarui secara real-time! Perubahan langsung aktif di rute /login."
       );
       setTimeout(() => {
         setPasswordSaveSuccess(null);
       }, 5000);
     } catch (err: any) {
-      setPasswordSaveError(err.message || "Terjadi kesalahan saat menyimpan password.");
+      setPasswordSaveError(err.message || "Terjadi kesalahan saat menyimpan pengaturan.");
     } finally {
       setIsSavingPasswords(false);
     }
@@ -201,11 +222,13 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
   const handleResetToDefault = () => {
     setAdminPasswordInput("admin-drive");
     setUserPasswordInput("drive-levi");
+    setTelegramLinkInput("https://t.me/synerize");
   };
 
   const isPasswordsModified =
     adminPasswordInput.trim() !== originalAdminPassword ||
-    userPasswordInput.trim() !== originalUserPassword;
+    userPasswordInput.trim() !== originalUserPassword ||
+    telegramLinkInput.trim() !== originalTelegramLink;
 
   const copyToClipboard = (text: string, keyName: string) => {
     if (!text) return;
@@ -476,7 +499,7 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
-                  Password Gerbang Akses (/login)
+                  Gerbang Akses (/login) &amp; Tautan Sosial
                 </h2>
                 <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1 font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -484,7 +507,7 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
                 </Badge>
               </div>
               <p className="text-xs text-slate-500">
-                Lihat dan ubah password akses login untuk Administrator (Owner) dan Pengguna Biasa.
+                Kelola password login (Admin &amp; Tamu) serta tautan social icon Telegram yang tampil di halaman login.
               </p>
             </div>
           </div>
@@ -635,6 +658,66 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
               </Button>
             </div>
           </div>
+
+          {/* Card 3: Tautan Social Icon Telegram (/login) */}
+          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#229ED9]/10">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-[#229ED9]">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                  </svg>
+                </div>
+                <label className="text-xs font-bold text-slate-800">
+                  Tautan Social Icon Telegram (/login)
+                </label>
+              </div>
+              <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-mono">
+                Real-Time Redirect
+              </Badge>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Tautan yang dibuka saat pengunjung menekan social icon Telegram di kartu login (<span className="font-mono text-slate-700">/login</span>). Mendukung URL lengkap (<span className="font-mono text-slate-700">https://t.me/synerize</span>), domain (<span className="font-mono text-slate-700">t.me/synerize</span>), atau username (<span className="font-mono text-slate-700">@synerize</span>).
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={telegramLinkInput}
+                  onChange={(e) => setTelegramLinkInput(e.target.value)}
+                  placeholder="https://t.me/synerize"
+                  className="w-full font-mono text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                />
+              </div>
+              <a
+                href={
+                  telegramLinkInput.startsWith("http")
+                    ? telegramLinkInput
+                    : `https://${telegramLinkInput.replace(/^@/, "t.me/")}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center h-8 px-2.5 shrink-0 text-xs border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg shadow-2xs transition cursor-pointer"
+                title="Buka / Uji Coba Tautan Telegram di Tab Baru"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-slate-500 mr-1" />
+                <span>Uji Link</span>
+              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(telegramLinkInput, "telegram-link")}
+                className="h-8 px-2.5 shrink-0 text-xs border-slate-200 bg-white hover:bg-slate-50 shadow-2xs cursor-pointer"
+                title="Salin Tautan Telegram"
+              >
+                {copiedKey === "telegram-link" ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Action bar and quick tips */}
@@ -651,7 +734,12 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
               variant="outline"
               size="sm"
               onClick={handleResetToDefault}
-              disabled={isSavingPasswords || (adminPasswordInput === "admin-drive" && userPasswordInput === "drive-levi")}
+              disabled={
+                isSavingPasswords ||
+                (adminPasswordInput === "admin-drive" &&
+                  userPasswordInput === "drive-levi" &&
+                  telegramLinkInput === "https://t.me/synerize")
+              }
               className="h-7.5 px-2.5 text-xs text-slate-600 border-slate-200 hover:bg-slate-50 cursor-pointer"
             >
               Reset Default
@@ -670,7 +758,7 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
               ) : (
                 <>
                   <Save className="h-3 w-3" />
-                  <span>Simpan Password</span>
+                  <span>Simpan Perubahan</span>
                 </>
               )}
             </Button>

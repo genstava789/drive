@@ -3,6 +3,23 @@ import { getSupabaseClient } from "./supabase";
 export const SITE_SESSION_COOKIE_NAME = "levidrive_access_session";
 export const DEFAULT_USER_PASSWORD = "drive-levi";
 export const DEFAULT_ADMIN_PASSWORD = "admin-drive";
+export const DEFAULT_TELEGRAM_LINK = "https://t.me/synerize";
+
+export function formatTelegramUrl(rawUrl?: string): string {
+  if (!rawUrl || typeof rawUrl !== "string") return DEFAULT_TELEGRAM_LINK;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return DEFAULT_TELEGRAM_LINK;
+  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("@")) {
+    return `https://t.me/${trimmed.substring(1)}`;
+  }
+  if (trimmed.startsWith("t.me/")) {
+    return `https://${trimmed}`;
+  }
+  return `https://t.me/${trimmed}`;
+}
 
 export type SiteRole = "admin" | "user";
 
@@ -137,6 +154,7 @@ export async function verifyPasswordWithHash(
 export interface SitePasswordsConfig {
   adminPassword: string;
   userPassword: string;
+  telegramLink?: string;
   updatedAt?: number;
 }
 
@@ -175,6 +193,7 @@ async function fetchPasswordsFromKv(): Promise<SitePasswordsConfig | null> {
       return {
         adminPassword: String(parsed.adminPassword).trim(),
         userPassword: String(parsed.userPassword).trim(),
+        telegramLink: parsed.telegramLink ? String(parsed.telegramLink).trim() : undefined,
         updatedAt: Number(parsed.updatedAt) || Date.now(),
       };
     }
@@ -215,6 +234,7 @@ async function readLocalFilePasswords(): Promise<SitePasswordsConfig | null> {
           return {
             adminPassword: String(parsed.adminPassword).trim(),
             userPassword: String(parsed.userPassword).trim(),
+            telegramLink: parsed.telegramLink ? String(parsed.telegramLink).trim() : undefined,
             updatedAt: Number(parsed.updatedAt) || Date.now(),
           };
         }
@@ -259,6 +279,7 @@ async function fetchPasswordsFromSupabase(): Promise<SitePasswordsConfig | null>
         return {
           adminPassword: String(parsed.adminPassword).trim(),
           userPassword: String(parsed.userPassword).trim(),
+          telegramLink: parsed.telegramLink ? String(parsed.telegramLink).trim() : undefined,
           updatedAt: Number(parsed.updatedAt) || Date.now(),
         };
       }
@@ -310,7 +331,7 @@ async function savePasswordsToSupabase(config: SitePasswordsConfig): Promise<voi
 }
 
 /**
- * Get current gate passwords for Admin and Regular User with real-time caching
+ * Get current gate passwords and config for Admin, Regular User, and Social Links with real-time caching
  */
 export async function getSitePasswordsConfig(
   forceRefresh = false
@@ -345,10 +366,14 @@ export async function getSitePasswordsConfig(
     process.env.SITE_USER_PASSWORD ||
     process.env.USER_PASSWORD ||
     DEFAULT_USER_PASSWORD;
+  const defaultTelegram =
+    process.env.TELEGRAM_LINK ||
+    DEFAULT_TELEGRAM_LINK;
 
   const result: SitePasswordsConfig = {
     adminPassword: loaded?.adminPassword || defaultAdmin,
     userPassword: loaded?.userPassword || defaultUser,
+    telegramLink: formatTelegramUrl(loaded?.telegramLink || defaultTelegram),
     updatedAt: loaded?.updatedAt || Date.now(),
   };
 
@@ -358,7 +383,7 @@ export async function getSitePasswordsConfig(
 }
 
 /**
- * Update gate passwords in real-time across Supabase, KV, local file, and memory
+ * Update gate passwords and telegram link in real-time across Supabase, KV, local file, and memory
  */
 export async function updateSitePasswordsConfig(
   newConfig: Partial<SitePasswordsConfig>
@@ -374,9 +399,15 @@ export async function updateSitePasswordsConfig(
       ? newConfig.userPassword.trim()
       : current.userPassword;
 
+  const updatedTelegram =
+    typeof newConfig.telegramLink === "string" && newConfig.telegramLink.trim()
+      ? formatTelegramUrl(newConfig.telegramLink.trim())
+      : current.telegramLink || DEFAULT_TELEGRAM_LINK;
+
   const finalConfig: SitePasswordsConfig = {
     adminPassword: updatedAdmin,
     userPassword: updatedUser,
+    telegramLink: updatedTelegram,
     updatedAt: Date.now(),
   };
 

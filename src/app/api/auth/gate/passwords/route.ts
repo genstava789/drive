@@ -27,6 +27,7 @@ export async function GET() {
       success: true,
       adminPassword: config.adminPassword,
       userPassword: config.userPassword,
+      telegramLink: config.telegramLink || "https://t.me/synerize",
       updatedAt: config.updatedAt,
     });
   } catch (err: any) {
@@ -40,7 +41,7 @@ export async function GET() {
 
 /**
  * POST /api/auth/gate/passwords
- * Allows Owner/Admin to update site passwords in real-time
+ * Allows Owner/Admin to update site passwords and telegram link in real-time
  */
 export async function POST(req: NextRequest) {
   try {
@@ -53,10 +54,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { adminPassword, userPassword } = body;
+    const { adminPassword, userPassword, telegramLink } = body;
 
     const trimmedAdmin = typeof adminPassword === "string" ? adminPassword.trim() : "";
     const trimmedUser = typeof userPassword === "string" ? userPassword.trim() : "";
+    const trimmedTelegram = typeof telegramLink === "string" ? telegramLink.trim() : undefined;
 
     if (!trimmedAdmin) {
       return NextResponse.json(
@@ -89,13 +91,15 @@ export async function POST(req: NextRequest) {
     const updated = await updateSitePasswordsConfig({
       adminPassword: trimmedAdmin,
       userPassword: trimmedUser,
+      ...(trimmedTelegram !== undefined ? { telegramLink: trimmedTelegram } : {}),
     });
 
     return NextResponse.json({
       success: true,
-      message: "Password berhasil diperbarui secara real-time.",
+      message: "Password dan konfigurasi berhasil diperbarui secara real-time.",
       adminPassword: updated.adminPassword,
       userPassword: updated.userPassword,
+      telegramLink: updated.telegramLink,
       updatedAt: updated.updatedAt,
     });
   } catch (err: any) {
