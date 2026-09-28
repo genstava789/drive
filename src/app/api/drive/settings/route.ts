@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         );
 
         if (aboutRes.ok) {
-          const aboutData = await aboutRes.json();
+          const aboutData = (await aboutRes.json()) as any;
           if (aboutData.storageQuota) {
             const limit = parseInt(aboutData.storageQuota.limit || "0", 10);
             const usage = parseInt(aboutData.storageQuota.usage || "0", 10);
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
           }
         );
         if (filesRes.ok) {
-          const filesData = await filesRes.json();
+          const filesData = (await filesRes.json()) as any;
           const items = filesData.files || [];
           for (const item of items) {
             if (item.mimeType === "application/vnd.google-apps.folder") {
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           }
         );
         if (trashRes.ok) {
-          const trashData = await trashRes.json();
+          const trashData = (await trashRes.json()) as any;
           totalTrash = (trashData.files || []).length;
         }
       } catch (err) {

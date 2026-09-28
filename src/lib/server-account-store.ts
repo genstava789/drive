@@ -213,7 +213,7 @@ export async function fetchGoogleDriveUserProfile(
       }
     );
     if (res.ok) {
-      const data = await res.json();
+      const data = (await res.json()) as any;
       return data?.user || null;
     }
   } catch (err) {
@@ -501,7 +501,7 @@ export async function refreshGoogleAccessToken(
     );
   }
 
-  const data = await resp.json();
+  const data = (await resp.json()) as any;
   return {
     accessToken: data.access_token,
     expiresIn: data.expires_in || 3600,

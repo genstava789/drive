@@ -53,7 +53,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = ((await req.json().catch(() => ({}))) || {}) as {
+      adminPassword?: string;
+      userPassword?: string;
+      telegramLink?: string;
+    };
     const { adminPassword, userPassword, telegramLink } = body;
 
     const trimmedAdmin = typeof adminPassword === "string" ? adminPassword.trim() : "";

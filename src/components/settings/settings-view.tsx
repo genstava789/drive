@@ -138,7 +138,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     try {
       const res = await fetch("/api/auth/gate/passwords");
       if (res.ok) {
-        const json = await res.json();
+        const json = (await res.json()) as any;
         if (json.success && json.adminPassword && json.userPassword) {
           setAdminPasswordInput(json.adminPassword);
           setUserPasswordInput(json.userPassword);
@@ -192,7 +192,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
         }),
       });
 
-      const resJson = await res.json();
+      const resJson = (await res.json()) as any;
       if (!res.ok || !resJson.success) {
         throw new Error(resJson.error || "Gagal memperbarui pengaturan");
       }

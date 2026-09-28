@@ -37,7 +37,7 @@ export async function HEAD(request: NextRequest) {
       return new Response(null, { status: metaRes.status });
     }
 
-    const metadata = await metaRes.json();
+    const metadata = (await metaRes.json()) as any;
     const headers = new Headers();
     headers.set("Accept-Ranges", "bytes");
 

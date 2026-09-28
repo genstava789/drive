@@ -214,7 +214,7 @@ export async function getDriveFiles(
       };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
     const rawFiles: any[] = data.files || [];
     const files: DriveFile[] = rawFiles
       .filter(
@@ -338,7 +338,7 @@ export async function getDriveItemById(
       }
 
       if (response.ok) {
-        const file = await response.json();
+        const file = (await response.json()) as any;
         const itemResult: DriveFile = {
           id: file.id,
           name: file.name,
@@ -419,7 +419,7 @@ export async function syncDriveChangesForAccount(accountIndex = 0): Promise<{
         }
       );
       if (tokenRes.ok) {
-        const tokenData = await tokenRes.json();
+        const tokenData = (await tokenRes.json()) as any;
         pageToken = tokenData.startPageToken;
         if (pageToken) {
           await saveDriveSyncToken(accountId, pageToken);

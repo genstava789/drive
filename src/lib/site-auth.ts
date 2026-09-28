@@ -185,7 +185,7 @@ async function fetchPasswordsFromKv(): Promise<SitePasswordsConfig | null> {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const json = await res.json();
+    const json = (await res.json()) as { result?: any } | null;
     if (!json?.result) return null;
     const parsed =
       typeof json.result === "string" ? JSON.parse(json.result) : json.result;

@@ -105,15 +105,17 @@ export async function fetchCachedServerAccounts(force = false): Promise<GoogleAc
     try {
       const res = await fetch("/api/auth/accounts", { cache: "no-store" });
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data?.accounts)) {
-          if (data.accounts.length > 0) {
+        const raw = await res.json();
+        const data = raw as { accounts?: GoogleAccount[] } | null | undefined;
+        const accountsList = data?.accounts;
+        if (Array.isArray(accountsList)) {
+          if (accountsList.length > 0) {
             clearAllLoggedOutFlag();
           }
-          cachedServerAccounts = data.accounts;
+          cachedServerAccounts = accountsList;
           cachedServerAccountsTime = Date.now();
-          saveCachedLocalStorageAccounts(data.accounts);
-          return data.accounts;
+          saveCachedLocalStorageAccounts(accountsList);
+          return accountsList;
         }
       }
     } catch (_) {}

@@ -31,7 +31,7 @@ function LoginForm() {
     let isMounted = true;
     fetch("/api/auth/gate/config")
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: any) => {
         if (isMounted && data?.telegramLink) {
           setTelegramLink(data.telegramLink);
         }
@@ -58,7 +58,7 @@ function LoginForm() {
         body: JSON.stringify({ password: password.trim() }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as any;
 
       if (!res.ok || !data.success) {
         setErrorMessage(
