@@ -7,6 +7,7 @@ import {
 } from "@/lib/server-account-store";
 import { getGoogleCredentials } from "@/lib/auth-credentials";
 import { getSiteSession, getSitePasswordsConfig } from "@/lib/site-auth";
+import { getHdAvatarUrl } from "@/lib/utils";
 
 // In-memory cache for settings and quota (TTL 30 seconds)
 interface CachedSettings {
@@ -185,7 +186,7 @@ export async function GET(request: NextRequest) {
           id: account.id || account.email,
           name: userInfo.displayName,
           email: userInfo.emailAddress,
-          image: userInfo.photoLink,
+          image: getHdAvatarUrl(userInfo.photoLink || account.image || ""),
         },
         credentials: {
           clientId: creds.clientId,

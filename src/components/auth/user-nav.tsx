@@ -21,6 +21,7 @@ import {
   Settings,
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
+import { getHdAvatarUrl } from "@/lib/utils";
 import {
   removeAccount,
   removeAccountById,
@@ -305,28 +306,28 @@ export function UserNav({
         {accounts.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1.5 rounded-full p-1 pl-1.5 pr-2.5 border border-slate-200 bg-white hover:bg-slate-50 shadow-2xs transition outline-none cursor-pointer">
-                <div className="relative flex h-6 w-6 items-center justify-center shrink-0">
+              <button className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-2.5 border border-slate-200/90 bg-white hover:bg-slate-50 shadow-2xs hover:shadow-xs transition outline-none cursor-pointer">
+                <div className="relative flex h-6.5 w-6.5 items-center justify-center shrink-0">
                   {activeAccount?.image && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={activeAccount.image}
+                      src={getHdAvatarUrl(activeAccount.image, 256)}
                       alt={activeAccount.name}
                       referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-6 w-6 rounded-full border border-slate-200 object-cover z-10"
+                      className="absolute inset-0 h-6.5 w-6.5 rounded-full border border-slate-200/90 object-cover shadow-2xs ring-1 ring-blue-500/20 z-10"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = "none";
                       }}
                     />
                   )}
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
+                  <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-[11px] font-bold text-white shadow-2xs">
                     {activeAccount?.name?.charAt(0)?.toUpperCase() || "G"}
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-slate-800 max-w-[100px] truncate hidden sm:inline-block">
+                <span className="text-xs font-semibold text-slate-800 max-w-[110px] truncate hidden sm:inline-block">
                   {activeAccount?.name}
                 </span>
-                <span className="text-[10px] bg-slate-100 text-slate-500 font-mono px-1 rounded">
+                <span className="text-[10px] bg-slate-100 text-slate-500 font-mono font-medium px-1.5 py-0.5 rounded-md border border-slate-200/60">
                   /{accountIndex}
                 </span>
                 <ChevronDown className="h-3 w-3 text-slate-400" />
@@ -357,21 +358,21 @@ export function UserNav({
                           : "hover:bg-slate-100/70"
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative flex h-7 w-7 items-center justify-center shrink-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="relative flex h-8 w-8 items-center justify-center shrink-0">
                           {acc.image && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={acc.image}
+                              src={getHdAvatarUrl(acc.image, 256)}
                               alt={acc.name}
                               referrerPolicy="no-referrer"
-                              className="absolute inset-0 h-7 w-7 rounded-full border border-slate-200 object-cover z-10"
+                              className="absolute inset-0 h-8 w-8 rounded-full border border-slate-200/90 object-cover shadow-2xs z-10"
                               onError={(e) => {
                                 (e.target as HTMLElement).style.display = "none";
                               }}
                             />
                           )}
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 text-xs font-bold text-white shadow-2xs">
                             {acc.name?.charAt(0)?.toUpperCase() || "G"}
                           </div>
                         </div>

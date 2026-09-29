@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, getHdAvatarUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OAuthSetupDialog } from "@/components/auth/oauth-setup-dialog";
@@ -30,14 +30,7 @@ import {
   Save,
   Loader2,
   Lock,
-  Zap,
-  Globe,
-  Radio,
-  Server,
-  Wifi,
-  PlaySquare,
 } from "lucide-react";
-import { saveStoredClientWorkerConfig } from "@/lib/worker-config-client";
 
 interface SettingsData {
   isAuthenticated: boolean;
@@ -103,50 +96,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
   const [passwordSaveSuccess, setPasswordSaveSuccess] = useState<string | null>(null);
   const [passwordSaveError, setPasswordSaveError] = useState<string | null>(null);
 
-  // Cloudflare Worker & Direct Download States
-  const [defaultWorkerUrlInput, setDefaultWorkerUrlInput] = useState<string>("");
-  const [originalDefaultWorkerUrl, setOriginalDefaultWorkerUrl] = useState<string>("");
-  const [accountWorkersInput, setAccountWorkersInput] = useState<Record<string, string>>({});
-  const [originalAccountWorkers, setOriginalAccountWorkers] = useState<Record<string, string>>({});
-  const [useWorkerStreamingInput, setUseWorkerStreamingInput] = useState<boolean>(false);
-  const [originalUseWorkerStreaming, setOriginalUseWorkerStreaming] = useState<boolean>(false);
-  const [isSavingWorker, setIsSavingWorker] = useState<boolean>(false);
-  const [workerSaveSuccess, setWorkerSaveSuccess] = useState<string | null>(null);
-  const [workerSaveError, setWorkerSaveError] = useState<string | null>(null);
-  const [workerTestStatus, setWorkerTestStatus] = useState<"idle" | "testing" | "online" | "offline">("idle");
-  const [workerTestMessage, setWorkerTestMessage] = useState<string | null>(null);
-  const [availableAccountsList, setAvailableAccountsList] = useState<{ id?: string; name?: string; email?: string }[]>([]);
-  const [showMultiAccountWorkers, setShowMultiAccountWorkers] = useState<boolean>(false);
 
-  const fetchWorkerConfig = useCallback(async () => {
-    try {
-      const res = await fetch("/api/drive/worker-config");
-      if (res.ok) {
-        const json = (await res.json()) as any;
-        if (json.success && json.config) {
-          const cfg = json.config;
-          setDefaultWorkerUrlInput(cfg.defaultWorkerUrl || "");
-          setOriginalDefaultWorkerUrl(cfg.defaultWorkerUrl || "");
-          setAccountWorkersInput(cfg.accountWorkers || {});
-          setOriginalAccountWorkers(cfg.accountWorkers || {});
-          setUseWorkerStreamingInput(Boolean(cfg.useWorkerStreaming));
-          setOriginalUseWorkerStreaming(Boolean(cfg.useWorkerStreaming));
-        }
-      }
-    } catch (_) {}
-  }, []);
-
-  const fetchAvailableAccounts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/accounts");
-      if (res.ok) {
-        const json = (await res.json()) as any;
-        if (Array.isArray(json.accounts)) {
-          setAvailableAccountsList(json.accounts);
-        }
-      }
-    } catch (_) {}
-  }, []);
 
   const fetchSettings = useCallback(
     async (forceRefresh = false) => {
@@ -208,9 +158,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
   useEffect(() => {
     fetchSettings(false);
     fetchGatePasswords();
-    fetchWorkerConfig();
-    fetchAvailableAccounts();
-  }, [fetchSettings, fetchGatePasswords, fetchWorkerConfig, fetchAvailableAccounts]);
+  }, [fetchSettings, fetchGatePasswords]);
 
   const handleSavePasswords = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -278,85 +226,7 @@ export function SettingsView({ accountIndex }: SettingsViewProps) {
     userPasswordInput.trim() !== originalUserPassword ||
     telegramLinkInput.trim() !== originalTelegramLink;
 
-  const handleTestWorker = async (urlToTest?: string) => {
-    const targetUrl = (urlToTest || defaultWorkerUrlInput).trim().replace(/\/+$/, "");
-    if (!targetUrl) {
-      setWorkerTestStatus("offline");
-      setWorkerTestMessage("URL Worker belum diisi.");
-      return;
-    }
-    setWorkerTestStatus("testing");
-    setWorkerTestMessage(null);
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(targetUrl, { signal: controller.signal, mode: "cors" });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const json = (await res.json().catch(() => ({}))) as any;
-        setWorkerTestStatus("online");
-        setWorkerTestMessage(`Worker Online & Aktif (${json.status || "200 OK"})`);
-      } else {
-        setWorkerTestStatus("online");
-        setWorkerTestMessage(`Worker terhubung (Status HTTP ${res.status})`);
-      }
-    } catch (err: any) {
-      setWorkerTestStatus("offline");
-      setWorkerTestMessage(`Gagal menghubungi Worker: ${err.message || "Timeout / Tidak dapat dijangkau"}`);
-    }
-  };
 
-  const handleSaveWorkerConfig = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setIsSavingWorker(true);
-    setWorkerSaveError(null);
-    setWorkerSaveSuccess(null);
-
-    const trimmedDefault = defaultWorkerUrlInput.trim().replace(/\/+$/, "");
-    if (trimmedDefault && !trimmedDefault.startsWith("http://") && !trimmedDefault.startsWith("https://")) {
-      setWorkerSaveError("URL Worker harus diawali dengan https:// atau http://");
-      setIsSavingWorker(false);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/drive/worker-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          defaultWorkerUrl: trimmedDefault,
-          accountWorkers: accountWorkersInput,
-          useWorkerStreaming: useWorkerStreamingInput,
-        }),
-      });
-
-      const resJson = (await res.json()) as any;
-      if (!res.ok || !resJson.success) {
-        throw new Error(resJson.error || "Gagal menyimpan konfigurasi worker");
-      }
-
-      setOriginalDefaultWorkerUrl(trimmedDefault);
-      setOriginalAccountWorkers({ ...accountWorkersInput });
-      setOriginalUseWorkerStreaming(useWorkerStreamingInput);
-      saveStoredClientWorkerConfig(resJson.config);
-
-      setWorkerSaveSuccess(
-        "URL Cloudflare Worker berhasil disimpan ke database secara real-time! Tautan Direct Download & Salin URL langsung menggunakan Worker ini tanpa redeploy Vercel."
-      );
-      setTimeout(() => {
-        setWorkerSaveSuccess(null);
-      }, 6000);
-    } catch (err: any) {
-      setWorkerSaveError(err.message || "Terjadi kesalahan saat menyimpan konfigurasi worker.");
-    } finally {
-      setIsSavingWorker(false);
-    }
-  };
-
-  const isWorkerModified =
-    defaultWorkerUrlInput.trim() !== originalDefaultWorkerUrl ||
-    JSON.stringify(accountWorkersInput) !== JSON.stringify(originalAccountWorkers) ||
-    useWorkerStreamingInput !== originalUseWorkerStreaming;
 
   const copyToClipboard = (text: string, keyName: string) => {
     if (!text) return;
@@ -456,27 +326,35 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
         </div>
 
         {data?.account && (
-          <div className="flex items-center gap-3 p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200/80 shrink-0">
-            {data.account.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={data.account.image}
-                alt={data.account.name}
-                className="h-10 w-10 rounded-full border border-slate-200 object-cover shadow-2xs"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-2xs">
-                {data.account.name?.charAt(0) || "G"}
-              </div>
-            )}
-            <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition shrink-0">
+            <div className="relative shrink-0">
+              {data.account.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={getHdAvatarUrl(data.account.image, 384)}
+                  alt={data.account.name}
+                  referrerPolicy="no-referrer"
+                  className="h-12 w-12 sm:h-13 sm:w-13 rounded-2xl border-2 border-slate-100 object-cover shadow-xs ring-2 ring-blue-500/20"
+                />
+              ) : (
+                <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-base font-bold text-white shadow-xs ring-2 ring-blue-500/20">
+                  {data.account.name?.charAt(0) || "G"}
+                </div>
+              )}
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              </span>
+            </div>
+            <div className="min-w-0 pr-1 space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                <p className="text-sm font-bold text-slate-900 truncate">
                   {data.account.name}
                 </p>
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-medium">
+                  HD Verified
+                </Badge>
               </div>
-              <p className="text-[11px] text-slate-500 truncate max-w-[190px] sm:max-w-[220px]">
+              <p className="text-xs text-slate-500 font-mono truncate max-w-[200px] sm:max-w-[240px]">
                 {data.account.email}
               </p>
             </div>
@@ -840,279 +718,7 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
         </div>
       </div>
 
-      {/* Cloudflare Worker & Direct Download Configuration Card */}
-      <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 border border-sky-100 shadow-2xs">
-              <Zap className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">
-                  Cloudflare Worker &amp; Direct Download
-                </h2>
-                <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-mono">
-                  Bypass Kuota Drive
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500">
-                Konfigurasi URL Worker untuk tautan unduhan langsung (direct download &amp; streaming) berkecepatan tinggi.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {workerTestStatus === "online" && (
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1.5 py-1 px-2.5 text-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Online &amp; Aktif
-              </Badge>
-            )}
-            {workerTestStatus === "offline" && (
-              <Badge className="bg-rose-50 text-rose-700 border-rose-200 gap-1.5 py-1 px-2.5 text-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                Tidak Terhubung
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleTestWorker()}
-              disabled={workerTestStatus === "testing" || !defaultWorkerUrlInput.trim()}
-              className="h-8 px-2.5 text-xs gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs cursor-pointer"
-            >
-              <Radio className={`h-3.5 w-3.5 text-sky-500 ${workerTestStatus === "testing" ? "animate-pulse" : ""}`} />
-              <span>{workerTestStatus === "testing" ? "Menguji..." : "Test Koneksi"}</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Worker Test Status Feedback Message */}
-        {workerTestMessage && (
-          <div
-            className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs animate-in fade-in duration-200 ${
-              workerTestStatus === "online"
-                ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
-                : "border-rose-200 bg-rose-50/90 text-rose-800"
-            }`}
-          >
-            {workerTestStatus === "online" ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-            )}
-            <div className="flex-1 font-medium">{workerTestMessage}</div>
-          </div>
-        )}
-
-        {/* Feedback alerts */}
-        {workerSaveSuccess && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-200 bg-emerald-50/90 text-xs text-emerald-800 animate-in fade-in duration-200">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <div className="flex-1 font-medium">{workerSaveSuccess}</div>
-          </div>
-        )}
-
-        {workerSaveError && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-rose-200 bg-rose-50/90 text-xs text-rose-800 animate-in fade-in duration-200">
-            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-            <div className="flex-1 font-medium">{workerSaveError}</div>
-          </div>
-        )}
-
-        {/* Card 1: URL Worker Utama (Global) */}
-        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Globe className="h-4 w-4 text-sky-600" />
-              <label className="text-xs font-bold text-slate-800">
-                URL Cloudflare Worker Utama (Global)
-              </label>
-            </div>
-            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-mono">
-              Default Semua Akun
-            </Badge>
-          </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            URL endpoint Cloudflare Worker yang menangani pengunduhan langsung (direct download &amp; link copy). Disimpan ke database (Supabase &amp; KV) secara otomatis tanpa perlu redeploy Vercel.
-          </p>
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={defaultWorkerUrlInput}
-                onChange={(e) => setDefaultWorkerUrlInput(e.target.value)}
-                placeholder="https://levidrive-downloader.storage03.workers.dev"
-                className="w-full font-mono text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 shadow-2xs"
-              />
-            </div>
-            {defaultWorkerUrlInput.trim() && (
-              <a
-                href={defaultWorkerUrlInput.trim().replace(/\/+$/, "")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center h-8 px-2.5 shrink-0 text-xs border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-lg shadow-2xs transition cursor-pointer"
-                title="Buka Halaman Worker di Tab Baru"
-              >
-                <ExternalLink className="h-3.5 w-3.5 text-slate-500 mr-1" />
-                <span>Buka</span>
-              </a>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(defaultWorkerUrlInput, "worker-url")}
-              className="h-8 px-2.5 shrink-0 text-xs border-slate-200 bg-white hover:bg-slate-50 shadow-2xs cursor-pointer"
-              title="Salin URL Worker"
-            >
-              {copiedKey === "worker-url" ? (
-                <Check className="h-3.5 w-3.5 text-emerald-600" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 text-slate-500" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Card 2: Multi-Account Dedicated Worker Configuration */}
-        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Server className="h-4 w-4 text-indigo-600" />
-              <label className="text-xs font-bold text-slate-800">
-                Pengaturan Direct Download Per-Akun Google (Multi-Akun)
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowMultiAccountWorkers(!showMultiAccountWorkers)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-            >
-              {showMultiAccountWorkers ? "Sembunyikan Pengaturan Per-Akun" : "Konfigurasi Per-Akun (Opsional)"}
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            Jika Anda memiliki beberapa akun Google Drive atau menggunakan worker berbeda per akun, Anda dapat menentukan URL Worker khusus untuk tiap akun di bawah ini. Jika dibiarkan kosong, akun tersebut akan otomatis menggunakan Worker Utama dengan parameter akun.
-          </p>
-
-          {showMultiAccountWorkers && (
-            <div className="space-y-3 pt-2 border-t border-slate-200/60 animate-in fade-in duration-200">
-              {(availableAccountsList.length > 0 ? availableAccountsList : [{ id: "primary", name: "Akun Utama", email: "Akun Terverifikasi" }]).map((acc, idx) => {
-                const accKey = String(idx);
-                const currentVal = accountWorkersInput[accKey] || "";
-                return (
-                  <div key={acc.id || idx} className="p-3 rounded-lg bg-white border border-slate-200/70 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">
-                          #{idx}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-800">
-                          {acc.name || `Akun #${idx}`}
-                        </span>
-                        {acc.email && (
-                          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline-block">
-                            ({acc.email})
-                          </span>
-                        )}
-                      </div>
-                      <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px]">
-                        {currentVal ? "Worker Khusus" : "Gunakan Worker Utama"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={currentVal}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setAccountWorkersInput((prev) => ({
-                            ...prev,
-                            [accKey]: val,
-                          }));
-                        }}
-                        placeholder={`Opsional: Menggunakan URL Worker Utama`}
-                        className="w-full font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/50 text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white shadow-2xs"
-                      />
-                      {currentVal && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAccountWorkersInput((prev) => {
-                              const copy = { ...prev };
-                              delete copy[accKey];
-                              return copy;
-                            });
-                          }}
-                          className="text-[11px] text-rose-500 hover:text-rose-700 px-2 py-1 cursor-pointer"
-                          title="Reset ke Worker Utama"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Card 3: Opsi Video Streaming via Worker */}
-        <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-center justify-between gap-3">
-          <div className="flex items-start gap-2.5">
-            <PlaySquare className="h-4 w-4 text-purple-600 mt-0.5 shrink-0" />
-            <div>
-              <label className="text-xs font-bold text-slate-800 cursor-pointer" htmlFor="worker-streaming-toggle">
-                Aktifkan Streaming Video Langsung via Worker
-              </label>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Gunakan Cloudflare Worker untuk streaming video inline pemutar Vidstack dengan dukungan HTTP 206 Byte Ranges.
-              </p>
-            </div>
-          </div>
-          <input
-            id="worker-streaming-toggle"
-            type="checkbox"
-            checked={useWorkerStreamingInput}
-            onChange={(e) => setUseWorkerStreamingInput(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
-          />
-        </div>
-
-        {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
-          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-            <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <span>
-              Tersimpan langsung di Supabase &amp; KV. Tombol Download dan Salin Link otomatis memakai Worker ini tanpa redeploy Vercel.
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-            <Button
-              size="sm"
-              onClick={handleSaveWorkerConfig}
-              disabled={isSavingWorker || !isWorkerModified}
-              className="h-7.5 px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-            >
-              {isSavingWorker ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Menyimpan...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-3 w-3" />
-                  <span>Simpan Konfigurasi Worker</span>
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
 
       {/* Row 3: Credentials Card (Client ID, Client Secret, Refresh Token) */}
       <div className="rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs space-y-4 sm:space-y-5">

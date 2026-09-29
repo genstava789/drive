@@ -173,3 +173,20 @@ export function getVideoStreamUrl(fileId: string, accountIndex = 0): string {
   return `/api/drive/stream?id=${encodeURIComponent(fileId)}&accountIndex=${accountIndex}`;
 }
 
+/**
+ * Upgrade Google avatar URL to HD / Retina resolution (e.g. replacing =s96-c with =s384-c)
+ */
+export function getHdAvatarUrl(url?: string | null, size = 384): string {
+  if (!url) return "";
+  let cleanUrl = url.trim();
+  if (cleanUrl.includes("googleusercontent.com")) {
+    if (/=s\d+(-c)?/i.test(cleanUrl)) {
+      return cleanUrl.replace(/=s\d+(-c)?/i, `=s${size}-c`);
+    }
+    if (!cleanUrl.includes("=")) {
+      return `${cleanUrl}=s${size}-c`;
+    }
+  }
+  return cleanUrl;
+}
+
