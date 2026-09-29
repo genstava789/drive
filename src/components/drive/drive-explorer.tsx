@@ -247,9 +247,7 @@ export function DriveExplorer({
         if (!isBackground) {
           setIsLoading(false);
         }
-        if (showTopbar) {
-          stopTopbarLoading();
-        }
+        stopTopbarLoading();
       }
     },
     [accountIndex, initialFolderName, session]
@@ -283,12 +281,30 @@ export function DriveExplorer({
       if (typeof targetIdx === "number" && targetIdx !== accountIndex) {
         const targetCacheKey = `${targetIdx}_root`;
         const cached = clientFolderCache.get(targetCacheKey);
-        if (cached) {
+        const isFresh = cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS;
+
+        if (isFresh) {
           setFiles(cached.files);
           setIsLoading(false);
+          stopTopbarLoading();
         } else {
+          // Instantly show sleek loading skeleton without any delay
           setFiles([]);
           setIsLoading(true);
+
+          // Proactively pre-fetch target account root files in background
+          fetch(`/api/drive?folderId=root&accountIndex=${targetIdx}&autoSync=true`)
+            .then((r) => r.json())
+            .then((data: DriveResponse) => {
+              if (data?.files) {
+                clientFolderCache.set(targetCacheKey, {
+                  files: data.files,
+                  currentFolderName: data.currentFolderName,
+                  timestamp: Date.now(),
+                });
+              }
+            })
+            .catch(() => {});
         }
         setBreadcrumbs([{ id: "root", name: "My Drive" }]);
         setSearchQuery("");

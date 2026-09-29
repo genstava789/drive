@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { OAuthSetupDialog } from "./oauth-setup-dialog";
 import { getHdAvatarUrl } from "@/lib/utils";
+import { startTopbarLoading } from "@/components/ui/topbar-progress";
 import {
   removeAccount,
   removeAccountById,
@@ -192,23 +193,47 @@ export function UserNav({
       .catch(() => {});
   }, [session, userRole]);
 
+  // Controlled dropdown state to ensure instantaneous (0ms) dismissal on selection
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   // Real-time optimistic account switching
   const [optimisticIndex, setOptimisticIndex] = useState<number | null>(null);
   useEffect(() => {
     setOptimisticIndex(null);
   }, [accountIndex]);
 
+  // Pre-fetch account routes so client transitions are immediate and lightweight
+  useEffect(() => {
+    if (accounts && accounts.length > 0) {
+      accounts.forEach((_, idx) => {
+        router.prefetch(`/${idx}`);
+      });
+    }
+  }, [accounts, router]);
+
   const currentAccountIndex = optimisticIndex ?? accountIndex;
   const activeAccount = accounts[currentAccountIndex] || accounts[0];
 
   const handleSwitchAccount = (targetIndex: number) => {
+    // 1. Instantly close dropdown (0ms) - Never hang on screen!
+    setDropdownOpen(false);
+
     if (targetIndex === currentAccountIndex) return;
+
+    // 2. Instantly update active avatar & label in navbar button
     setOptimisticIndex(targetIndex);
+
+    // 3. Immediately start topbar progress loading bar
+    startTopbarLoading();
+
+    // 4. Dispatch event so DriveExplorer instantly shows loading skeleton
     window.dispatchEvent(
       new CustomEvent("levidrive_switch_account", {
         detail: { targetIndex },
       })
     );
+
+    // 5. Navigate to target account route
     router.push(`/${targetIndex}`);
   };
 
@@ -308,7 +333,7 @@ export function UserNav({
         )}
 
         {accounts.length > 0 ? (
-          <DropdownMenu>
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-2.5 border border-slate-200/80 bg-white hover:bg-slate-50 shadow-2xs hover:shadow-xs transition outline-none cursor-pointer">
                 <div className="relative h-6.5 w-6.5 rounded-full overflow-hidden border border-slate-200/90 shrink-0 bg-slate-100">
@@ -332,7 +357,7 @@ export function UserNav({
                   {activeAccount?.name}
                 </span>
                 <span className="text-[10px] bg-slate-100 text-slate-500 font-mono font-medium px-1.5 py-0.5 rounded-md border border-slate-200/60">
-                  /{accountIndex}
+                  /{currentAccountIndex}
                 </span>
                 <ChevronDown className="h-3 w-3 text-slate-400" />
               </button>
@@ -351,11 +376,12 @@ export function UserNav({
               {/* Account list with individual logout button */}
               <div className="space-y-1 py-1">
                 {accounts.map((acc, idx) => {
-                  const isActive = idx === accountIndex;
+                  const isActive = idx === currentAccountIndex;
                   return (
                     <div
                       key={acc.id || idx}
                       onClick={() => handleSwitchAccount(idx)}
+                      onMouseEnter={() => router.prefetch(`/${idx}`)}
                       className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
                         isActive
                           ? "bg-blue-50/80 border border-blue-200/60"
