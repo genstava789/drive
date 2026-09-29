@@ -83,16 +83,25 @@ export async function fetchStateFromSupabase(): Promise<ServerStoreState | null>
       return null;
     }
 
-    const accounts: ServerAccount[] = (accountsData || []).map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      image: row.image || undefined,
-      accessToken: row.access_token || undefined,
-      refreshToken: row.refresh_token || undefined,
-      expiresAt: row.expires_at ? Number(row.expires_at) : undefined,
-      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
-    }));
+    const seenEmails = new Set<string>();
+    const accounts: ServerAccount[] = [];
+    for (const row of accountsData || []) {
+      const emailKey = (row.email || "").toLowerCase().trim();
+      if (emailKey && seenEmails.has(emailKey)) {
+        continue;
+      }
+      if (emailKey) seenEmails.add(emailKey);
+      accounts.push({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        image: row.image || undefined,
+        accessToken: row.access_token || undefined,
+        refreshToken: row.refresh_token || undefined,
+        expiresAt: row.expires_at ? Number(row.expires_at) : undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+      });
+    }
 
     return {
       loggedOut: false,

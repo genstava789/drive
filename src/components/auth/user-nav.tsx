@@ -274,12 +274,16 @@ export function UserNav({
 
     setOptimisticIndex(nextIdx);
 
-    // 3. Fire server deletion in background without blocking UI
+    // 3. Fire server deletion and await so server state is updated before router.refresh
     const queryParams = new URLSearchParams();
     if (account.id) queryParams.set("id", account.id);
     if (account.email && account.email.includes("@")) queryParams.set("email", account.email);
     queryParams.set("index", String(idx));
-    fetch(`/api/auth/accounts?${queryParams.toString()}`, { method: "DELETE" }).catch(() => {});
+    try {
+      await fetch(`/api/auth/accounts?${queryParams.toString()}`, { method: "DELETE" });
+    } catch (_) {}
+
+    invalidateClientAccountsCache();
 
     // 4. Navigate to next account
     router.push(`/${nextIdx}`);

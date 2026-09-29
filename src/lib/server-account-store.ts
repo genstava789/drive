@@ -444,6 +444,16 @@ export async function removeServerAccount(
   const idToRemove = (accountId || "").trim();
   const emailToRemove = (accountEmail || "").trim().toLowerCase();
 
+  // Resolve target email if only index or id was provided
+  let targetEmail = emailToRemove;
+  if (!targetEmail && typeof accountIndex === "number" && state.accounts[accountIndex]?.email) {
+    targetEmail = (state.accounts[accountIndex].email || "").trim().toLowerCase();
+  }
+  if (!targetEmail && idToRemove) {
+    const matched = state.accounts.find((a) => a.id === idToRemove || a.email === idToRemove);
+    if (matched?.email) targetEmail = matched.email.trim().toLowerCase();
+  }
+
   state.accounts = state.accounts.filter((a, idx) => {
     if (typeof accountIndex === "number" && idx === accountIndex) {
       return false;
@@ -451,7 +461,7 @@ export async function removeServerAccount(
     if (idToRemove && (a.id === idToRemove || a.email === idToRemove)) {
       return false;
     }
-    if (emailToRemove && a.email && a.email.toLowerCase() === emailToRemove) {
+    if (targetEmail && a.email && a.email.toLowerCase() === targetEmail) {
       return false;
     }
     return true;
@@ -464,7 +474,7 @@ export async function removeServerAccount(
 
   try {
     if (idToRemove) await removeAccountFromSupabase(idToRemove);
-    if (emailToRemove) await removeAccountFromSupabase(emailToRemove);
+    if (targetEmail) await removeAccountFromSupabase(targetEmail);
   } catch (_) {}
 
   await persistStoreState(state);

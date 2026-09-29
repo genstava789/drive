@@ -267,13 +267,29 @@ export function getActiveAccounts(
       if (
         acc &&
         ((acc.email && acc.email.includes("@")) || acc.name) &&
-        !rawAccounts.some((a) => (acc.email && a.email === acc.email) || (acc.id && a.id === acc.id))
+        !rawAccounts.some(
+          (a) =>
+            (acc.email && a.email && a.email.toLowerCase() === acc.email.toLowerCase()) ||
+            (acc.id && a.id && a.id === acc.id) ||
+            (acc.name && a.name && a.name.trim().toLowerCase() === acc.name.trim().toLowerCase())
+        )
       ) {
         rawAccounts.push(acc);
       }
     }
   }
 
-  return filterAvailableAccounts(rawAccounts);
+  // Deduplicate accounts to ensure no account is ever duplicated
+  const seen = new Set<string>();
+  const uniqueAccounts: GoogleAccount[] = [];
+  for (const a of rawAccounts) {
+    const key =
+      (a.email && a.email.includes("@") ? a.email.toLowerCase().trim() : a.name?.toLowerCase().trim()) || a.id;
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    uniqueAccounts.push(a);
+  }
+
+  return filterAvailableAccounts(uniqueAccounts);
 }
 

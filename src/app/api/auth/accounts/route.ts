@@ -5,7 +5,6 @@ import {
   clearAllServerAccounts,
 } from "@/lib/server-account-store";
 import { getSiteSession } from "@/lib/site-auth";
-import { getHdAvatarUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +29,7 @@ export async function GET() {
         name: acc.name || "Akun Google",
         // Mask owner email for non-admin users for absolute privacy
         email: isAdmin ? acc.email || "" : "Akun Terverifikasi",
-        image: getHdAvatarUrl(acc.image) || undefined,
+        image: acc.image || undefined,
         hasValidToken: Boolean(acc.refreshToken || acc.accessToken),
         isPrimaryEnv: Boolean(acc.isPrimaryEnv),
       }));
