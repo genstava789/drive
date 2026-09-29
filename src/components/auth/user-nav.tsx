@@ -306,23 +306,23 @@ export function UserNav({
         {accounts.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-2.5 border border-slate-200/90 bg-white hover:bg-slate-50 shadow-2xs hover:shadow-xs transition outline-none cursor-pointer">
-                <div className="relative flex h-6.5 w-6.5 items-center justify-center shrink-0">
+              <button className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-2.5 border border-slate-200/80 bg-white hover:bg-slate-50 shadow-2xs hover:shadow-xs transition outline-none cursor-pointer">
+                <div className="relative h-6.5 w-6.5 rounded-full overflow-hidden border border-slate-200/90 shrink-0 bg-slate-100">
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-600 text-[11px] font-bold text-white">
+                    {activeAccount?.name?.charAt(0)?.toUpperCase() || "G"}
+                  </div>
                   {activeAccount?.image && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={getHdAvatarUrl(activeAccount.image, 256)}
                       alt={activeAccount.name}
                       referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-6.5 w-6.5 rounded-full border border-slate-200/90 object-cover shadow-2xs ring-1 ring-blue-500/20 z-10"
+                      className="relative h-full w-full object-cover z-10"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = "none";
                       }}
                     />
                   )}
-                  <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-[11px] font-bold text-white shadow-2xs">
-                    {activeAccount?.name?.charAt(0)?.toUpperCase() || "G"}
-                  </div>
                 </div>
                 <span className="text-xs font-semibold text-slate-800 max-w-[110px] truncate hidden sm:inline-block">
                   {activeAccount?.name}
@@ -359,22 +359,22 @@ export function UserNav({
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="relative flex h-8 w-8 items-center justify-center shrink-0">
+                        <div className="relative h-8 w-8 rounded-full overflow-hidden border border-slate-200/90 shrink-0 bg-slate-100">
+                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-slate-700 to-slate-900 text-xs font-bold text-white">
+                            {acc.name?.charAt(0)?.toUpperCase() || "G"}
+                          </div>
                           {acc.image && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={getHdAvatarUrl(acc.image, 256)}
                               alt={acc.name}
                               referrerPolicy="no-referrer"
-                              className="absolute inset-0 h-8 w-8 rounded-full border border-slate-200/90 object-cover shadow-2xs z-10"
+                              className="relative h-full w-full object-cover z-10"
                               onError={(e) => {
                                 (e.target as HTMLElement).style.display = "none";
                               }}
                             />
                           )}
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 text-xs font-bold text-white shadow-2xs">
-                            {acc.name?.charAt(0)?.toUpperCase() || "G"}
-                          </div>
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-slate-900 truncate">

@@ -328,21 +328,25 @@ GOOGLE_REFRESH_TOKEN="${data.credentials.refreshToken}"`;
         {data?.account && (
           <div className="flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition shrink-0">
             <div className="relative shrink-0">
-              {data.account.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={getHdAvatarUrl(data.account.image, 384)}
-                  alt={data.account.name}
-                  referrerPolicy="no-referrer"
-                  className="h-12 w-12 sm:h-13 sm:w-13 rounded-2xl border-2 border-slate-100 object-cover shadow-xs ring-2 ring-blue-500/20"
-                />
-              ) : (
-                <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-base font-bold text-white shadow-xs ring-2 ring-blue-500/20">
-                  {data.account.name?.charAt(0) || "G"}
+              <div className="relative h-12 w-12 sm:h-13 sm:w-13 rounded-full overflow-hidden border border-slate-200/90 bg-slate-100 shadow-2xs">
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-600 text-base font-bold text-white">
+                  {data.account.name?.charAt(0)?.toUpperCase() || "G"}
                 </div>
-              )}
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                {data.account.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={getHdAvatarUrl(data.account.image, 384)}
+                    alt={data.account.name}
+                    referrerPolicy="no-referrer"
+                    className="relative h-full w-full object-cover z-10"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                )}
+              </div>
+              <span className="absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
               </span>
             </div>
             <div className="min-w-0 pr-1 space-y-0.5">
