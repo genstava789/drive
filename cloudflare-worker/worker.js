@@ -16,6 +16,17 @@
  * - ?name=CUSTOM_NAME   : (Optional) Override downloaded filename
  */
 
+// Supabase Cloud Configuration (for real-time multi-account syncing without redeploy)
+const supabaseConfig = {
+  url: "https://kbcyqbejeexitkvbwogo.supabase.co",
+  anonKey: "sb_publishable_L40Y-cnaNgNiTsDG8jq2VQ_51LDHNyo",
+};
+
+// Fallback client credentials (same as Next.js app)
+const FALLBACK_CLIENT_ID = "394963894217-bkbjsjd99cfli5i6ds78uf3sku2jsq9e.apps.googleusercontent.com";
+const FALLBACK_CLIENT_SECRET_CODES = [14, 6, 10, 26, 25, 17, 100, 34, 43, 58, 51, 100, 58, 5, 30, 56, 45, 14, 11, 19, 30, 100, 123, 40, 43, 112, 113, 49, 42, 61, 62, 33, 15, 1, 59];
+const FALLBACK_CLIENT_SECRET = FALLBACK_CLIENT_SECRET_CODES.map((c) => String.fromCharCode(c ^ 73)).join("");
+
 // Configuration (can also be overridden via Cloudflare Worker Environment Variables)
 const authConfig = {
   siteName: "LeviDrive Downloader",
@@ -72,6 +83,77 @@ const GDOC_EXPORT_FORMATS = {
 
 // In-memory token cache across requests in the same isolate (keyed by account index)
 const tokenCacheMap = new Map();
+
+// In-memory accounts list cache from Supabase (TTL: 60 seconds)
+let accountsListCache = {
+  data: [],
+  timestamp: 0,
+};
+
+/**
+ * Fetch list of active Google accounts from Supabase or Worker environment
+ */
+async function getAvailableAccounts(env) {
+  const now = Date.now();
+  if (accountsListCache.data.length > 0 && now - accountsListCache.timestamp < 60000) {
+    return accountsListCache.data;
+  }
+
+  const sbUrl = env?.SUPABASE_URL || supabaseConfig.url;
+  const sbKey = env?.SUPABASE_KEY || env?.SUPABASE_ANON_KEY || supabaseConfig.anonKey;
+
+  let accounts = [];
+
+  if (sbUrl && sbKey) {
+    try {
+      const resp = await fetch(
+        `${sbUrl.replace(/\/+$/, "")}/rest/v1/drive_accounts?is_active=eq.true&order=created_at.asc`,
+        {
+          headers: {
+            apikey: sbKey,
+            Authorization: `Bearer ${sbKey}`,
+          },
+        }
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          accounts = data;
+        }
+      }
+    } catch (e) {
+      console.warn("Supabase drive_accounts fetch error:", e.message);
+    }
+  }
+
+  // Also parse ACCOUNTS JSON from environment variable if present
+  if (accounts.length === 0 && env?.ACCOUNTS) {
+    try {
+      const parsed = typeof env.ACCOUNTS === "string" ? JSON.parse(env.ACCOUNTS) : env.ACCOUNTS;
+      if (Array.isArray(parsed)) {
+        accounts = parsed;
+      }
+    } catch (_) {}
+  }
+
+  // Fallback to primary account in env if still empty
+  if (accounts.length === 0 && (env?.REFRESH_TOKEN || authConfig.refresh_token)) {
+    accounts = [
+      {
+        id: "env-primary",
+        name: "Primary Account",
+        refresh_token: env?.REFRESH_TOKEN || authConfig.refresh_token,
+      },
+    ];
+  }
+
+  accountsListCache = {
+    data: accounts,
+    timestamp: now,
+  };
+
+  return accounts;
+}
 
 /**
  * Fetch new Google Access Token using OAuth Refresh Token
@@ -176,7 +258,7 @@ async function fetchAccessTokenFromServiceAccount(saJson) {
 }
 
 /**
- * Get active access token (cached or refreshed)
+ * Get active access token (cached, from Supabase, or refreshed) with multi-account support
  */
 async function getAccessToken(env, explicitToken, accountIndex = 0) {
   if (explicitToken) {
@@ -192,29 +274,42 @@ async function getAccessToken(env, explicitToken, accountIndex = 0) {
     return cached.accessToken;
   }
 
-  // Parse accounts config if provided via ACCOUNTS JSON env
-  let accountsConfig = [];
-  if (env?.ACCOUNTS) {
-    try {
-      accountsConfig = typeof env.ACCOUNTS === "string" ? JSON.parse(env.ACCOUNTS) : env.ACCOUNTS;
-    } catch (_) {}
-  }
+  // 1. Fetch available accounts from Supabase or Worker environment
+  const accounts = await getAvailableAccounts(env);
+  const accountObj = Array.isArray(accounts) && accounts[accIdx] ? accounts[accIdx] : null;
 
-  const accountObj = Array.isArray(accountsConfig) && accountsConfig[accIdx] ? accountsConfig[accIdx] : null;
-
-  // Resolve credentials with fallback hierarchy
+  // Resolve client ID and secret
   const clientId =
     accountObj?.client_id ||
     env?.[`GOOGLE_CLIENT_ID_${accIdx}`] ||
     env?.GOOGLE_CLIENT_ID ||
-    authConfig.client_id;
+    authConfig.client_id ||
+    FALLBACK_CLIENT_ID;
 
   const clientSecret =
     accountObj?.client_secret ||
     env?.[`GOOGLE_CLIENT_SECRET_${accIdx}`] ||
     env?.GOOGLE_CLIENT_SECRET ||
-    authConfig.client_secret;
+    authConfig.client_secret ||
+    FALLBACK_CLIENT_SECRET;
 
+  // If account has an active access_token in database that is still valid for at least 2 minutes, use it directly!
+  if (accountObj?.access_token && accountObj?.expires_at) {
+    const expiresAtMs =
+      Number(accountObj.expires_at) > 1e11
+        ? Number(accountObj.expires_at)
+        : Number(accountObj.expires_at) * 1000;
+
+    if (expiresAtMs > now + 120000) {
+      tokenCacheMap.set(cacheKey, {
+        accessToken: accountObj.access_token,
+        expiresAt: expiresAtMs,
+      });
+      return accountObj.access_token;
+    }
+  }
+
+  // Resolve refresh token
   const refreshToken =
     accountObj?.refresh_token ||
     env?.[`REFRESH_TOKEN_${accIdx}`] ||
@@ -231,13 +326,9 @@ async function getAccessToken(env, explicitToken, accountIndex = 0) {
     result = await fetchAccessTokenFromServiceAccount(saConfig);
   } else if (clientId && clientSecret && refreshToken) {
     result = await fetchAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken);
-  } else if (accIdx > 0 && (env?.REFRESH_TOKEN || authConfig.refresh_token)) {
-    // If account-specific token isn't configured, gracefully fallback to primary account
-    const fallbackRefresh = env?.REFRESH_TOKEN || authConfig.refresh_token;
-    result = await fetchAccessTokenFromRefreshToken(clientId, clientSecret, fallbackRefresh);
   } else {
     throw new Error(
-      `Worker belum dikonfigurasi untuk akun #${accIdx}. Tambahkan REFRESH_TOKEN_${accIdx} atau set ACCOUNTS=[...] di environment variables Cloudflare Worker.`
+      `Worker belum dikonfigurasi untuk akun #${accIdx} (${accountObj?.email || "tidak terdaftar"}). Pastikan akun sudah login di LeviDrive.`
     );
   }
 
@@ -258,34 +349,93 @@ async function handleDownload(request, fileId, env, searchParams) {
   const explicitToken = searchParams.get("token") || request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   const customName = searchParams.get("name");
   const requestedFmt = searchParams.get("fmt")?.toLowerCase();
-  const accountIndex = searchParams.get("account") || searchParams.get("acc") || "0";
+  const rawAccParam = searchParams.get("account") || searchParams.get("acc");
+  const requestedAccountIndex =
+    rawAccParam !== null && rawAccParam !== "" && rawAccParam !== "auto"
+      ? parseInt(rawAccParam, 10)
+      : null;
 
-  const accessToken = await getAccessToken(env, explicitToken, accountIndex);
+  let accessToken = null;
+  let fileMeta = null;
+  let metaResp = null;
+  let activeAccountIndex = requestedAccountIndex ?? 0;
 
-  // 1. Fetch file metadata
-  const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
-    fileId
-  )}?fields=id,name,mimeType,size,webContentLink&supportsAllDrives=true`;
+  if (explicitToken) {
+    accessToken = explicitToken;
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}?fields=id,name,mimeType,size,webContentLink&supportsAllDrives=true`;
+    metaResp = await fetch(metaUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (metaResp.ok) {
+      fileMeta = await metaResp.json();
+    }
+  } else {
+    // Determine account search order:
+    // If account was specified, try that account FIRST.
+    // If not found (404), seamlessly try other accounts from Supabase!
+    const accounts = await getAvailableAccounts(env);
+    const orderToTry = [];
 
-  const metaResp = await fetch(metaUrl, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+    if (requestedAccountIndex !== null && requestedAccountIndex >= 0) {
+      orderToTry.push(requestedAccountIndex);
+      for (let i = 0; i < accounts.length; i++) {
+        if (i !== requestedAccountIndex) orderToTry.push(i);
+      }
+    } else {
+      for (let i = 0; i < Math.max(accounts.length, 1); i++) {
+        orderToTry.push(i);
+      }
+    }
 
-  if (!metaResp.ok) {
-    if (metaResp.status === 404) {
+    for (const accIdx of orderToTry) {
+      try {
+        const token = await getAccessToken(env, null, accIdx);
+        if (!token) continue;
+
+        const metaUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+          fileId
+        )}?fields=id,name,mimeType,size,webContentLink&supportsAllDrives=true`;
+
+        const resp = await fetch(metaUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (resp.ok) {
+          fileMeta = await resp.json();
+          accessToken = token;
+          activeAccountIndex = accIdx;
+          metaResp = resp;
+          break; // File found successfully!
+        } else {
+          metaResp = resp;
+        }
+      } catch (err) {
+        console.warn(`Attempt on account #${accIdx} failed:`, err.message);
+      }
+    }
+  }
+
+  if (!fileMeta) {
+    if (metaResp && metaResp.status === 404) {
       return new Response(
-        JSON.stringify({ error: "Berkas Google Drive tidak ditemukan (404)." }),
+        JSON.stringify({
+          error: "Berkas Google Drive tidak ditemukan (404).",
+          message: "Berkas tidak ditemukan atau tidak memiliki izin akses pada akun Google yang terhubung.",
+          fileId,
+          attemptedAccount: activeAccountIndex,
+        }),
         { status: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
-    const errText = await metaResp.text();
+    const errText = metaResp ? await metaResp.text() : "Gagal mengautentikasi akun Google Drive.";
     return new Response(
       JSON.stringify({ error: "Gagal mengambil metadata berkas dari Google Drive", details: errText }),
-      { status: metaResp.status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      { status: metaResp?.status || 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
     );
   }
 
-  const fileMeta = await metaResp.json();
   const fileName = customName || fileMeta.name || `file_${fileId}`;
   const mimeType = fileMeta.mimeType;
 
@@ -508,7 +658,17 @@ function renderWebGenerator(url) {
 /**
  * Render Status Landing Page with Tailwind CSS
  */
-function renderStatusPage(url) {
+async function renderStatusPage(url, env) {
+  const accounts = await getAvailableAccounts(env);
+
+  const accountOptions = [
+    `<option value="auto">Semua Akun (Otomatis Deteksi)</option>`,
+    ...accounts.map(
+      (a, i) =>
+        `<option value="${i}">Akun #${i}${a.name ? ` (${a.name}${a.email ? ` - ${a.email}` : ""})` : ""}</option>`
+    ),
+  ].join("\n              ");
+
   const html = `<!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
@@ -597,15 +757,12 @@ function renderStatusPage(url) {
       <div class="mt-8 pt-6 border-t border-white/5">
         <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Uji Unduhan Langsung File Drive</label>
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div class="md:col-span-6">
+          <div class="md:col-span-5">
             <input id="testFileId" type="text" placeholder="Masukkan Google Drive File ID..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-sky-500 transition-all font-mono" />
           </div>
-          <div class="md:col-span-3">
+          <div class="md:col-span-4">
             <select id="testAccount" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white text-xs focus:outline-none focus:border-sky-500 transition-all">
-              <option value="0">Akun #0 (Utama)</option>
-              <option value="1">Akun #1</option>
-              <option value="2">Akun #2</option>
-              <option value="3">Akun #3</option>
+              ${accountOptions}
             </select>
           </div>
           <div class="md:col-span-3 flex gap-2">
@@ -637,7 +794,7 @@ function renderStatusPage(url) {
               <th class="py-2.5 font-semibold">Deskripsi</th>
             </tr>
           </thead>
-          <tbody class="divide-y border-white/5 divide-white/5 font-mono">
+          <tbody class="divide-y divide-white/5 font-mono">
             <tr>
               <td class="py-2.5 pr-4 text-sky-400 font-bold">id</td>
               <td class="py-2.5 pr-4 text-slate-400">string (wajib)</td>
@@ -645,8 +802,8 @@ function renderStatusPage(url) {
             </tr>
             <tr>
               <td class="py-2.5 pr-4 text-sky-400 font-bold">account</td>
-              <td class="py-2.5 pr-4 text-slate-400">number (opsional)</td>
-              <td class="py-2.5 text-slate-300 font-sans">Index akun multi-login (0, 1, 2, ...). Default: 0</td>
+              <td class="py-2.5 pr-4 text-slate-400">number / string (opsional)</td>
+              <td class="py-2.5 text-slate-300 font-sans">Index akun multi-login (0, 1, 2, ... atau auto). Default: auto</td>
             </tr>
             <tr>
               <td class="py-2.5 pr-4 text-sky-400 font-bold">inline</td>
@@ -679,7 +836,8 @@ function renderStatusPage(url) {
       const id = document.getElementById('testFileId').value.trim();
       const acc = document.getElementById('testAccount').value;
       if (!id) return alert('Silakan masukkan Google Drive File ID terlebih dahulu.');
-      let target = '${url.origin}/download?id=' + encodeURIComponent(id) + '&account=' + encodeURIComponent(acc);
+      let target = '${url.origin}/download?id=' + encodeURIComponent(id);
+      if (acc && acc !== "auto") target += '&account=' + encodeURIComponent(acc);
       if (inline) target += '&inline=true';
       window.open(target, '_blank');
     }
@@ -779,7 +937,7 @@ async function handleRequest(request, env) {
   const isHtmlRequest = acceptHeader.includes("text/html") && !url.searchParams.has("json");
 
   if (isHtmlRequest) {
-    return renderStatusPage(url);
+    return await renderStatusPage(url, env);
   }
 
   return new Response(
